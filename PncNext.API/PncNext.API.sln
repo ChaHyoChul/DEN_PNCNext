@@ -4,6 +4,17 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 VisualStudioVersion = 17.14.37216.2 d17.14
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PncNext.API", "PncNext.API\PncNext.API.csproj", "{43F83DBA-79A4-49B0-BB42-216656133352}"
+	ProjectSection(ProjectDependencies) = postProject
+		{2D449044-FE87-4333-89A8-B61947338BED} = {2D449044-FE87-4333-89A8-B61947338BED}
+		{407529EF-B210-472C-B760-3F1A6DFD29E9} = {407529EF-B210-472C-B760-3F1A6DFD29E9}
+	EndProjectSection
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PncNext.Domain", "PncNext.Domain\PncNext.Domain.csproj", "{2D449044-FE87-4333-89A8-B61947338BED}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PncNext.Infrastructure", "PncNext.Infrastructure\PncNext.Infrastructure.csproj", "{407529EF-B210-472C-B760-3F1A6DFD29E9}"
+	ProjectSection(ProjectDependencies) = postProject
+		{2D449044-FE87-4333-89A8-B61947338BED} = {2D449044-FE87-4333-89A8-B61947338BED}
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -15,6 +26,14 @@ Global
 		{43F83DBA-79A4-49B0-BB42-216656133352}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{43F83DBA-79A4-49B0-BB42-216656133352}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{43F83DBA-79A4-49B0-BB42-216656133352}.Release|Any CPU.Build.0 = Release|Any CPU
+		{2D449044-FE87-4333-89A8-B61947338BED}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{2D449044-FE87-4333-89A8-B61947338BED}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{2D449044-FE87-4333-89A8-B61947338BED}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{2D449044-FE87-4333-89A8-B61947338BED}.Release|Any CPU.Build.0 = Release|Any CPU
+		{407529EF-B210-472C-B760-3F1A6DFD29E9}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{407529EF-B210-472C-B760-3F1A6DFD29E9}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{407529EF-B210-472C-B760-3F1A6DFD29E9}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{407529EF-B210-472C-B760-3F1A6DFD29E9}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
