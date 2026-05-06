@@ -1,7 +1,7 @@
 using PncNext.Domain.Interfaces;
 using System.Net.Sockets;
 
-namespace PncNext.Infrastructure.Motion
+namespace PncNext.Infrastructure.Motion.Transports
 {
     public class TcpCommPort : ICommPort
     {

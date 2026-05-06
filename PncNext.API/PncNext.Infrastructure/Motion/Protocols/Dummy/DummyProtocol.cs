@@ -1,7 +1,7 @@
 using PncNext.Domain.Interfaces;
 using System.Text;
 
-namespace PncNext.Infrastructure.Motion
+namespace PncNext.Infrastructure.Motion.Protocols.Dummy
 {
     public class DummyProtocol : IMotionProtocol
     {

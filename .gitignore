@@ -90,3 +90,9 @@ Temporary Items
 
 # Document 
 [Dd]ocs 
+
+# old verison source 
+old-version
+*.zip 
+
+

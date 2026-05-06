@@ -1,13 +1,13 @@
 using PncNext.Domain.Interfaces;
 
-namespace PncNext.Infrastructure.Motion
+namespace PncNext.Infrastructure.Motion.Services
 {
-    public class MotionControlService : IMotionControl
+    public class INTHMotionControlService : IMotionControl
     {
         private readonly ICommPort _commPort;
         private readonly IMotionProtocol _protocol;
 
-        public MotionControlService(ICommPort commPort, IMotionProtocol protocol)
+        public INTHMotionControlService(ICommPort commPort, IMotionProtocol protocol)
         {
             _commPort = commPort;
             _protocol = protocol;

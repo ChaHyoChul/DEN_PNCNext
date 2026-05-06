@@ -1,7 +1,7 @@
 using PncNext.Domain.Interfaces;
 using System.IO.Ports;
 
-namespace PncNext.Infrastructure.Motion
+namespace PncNext.Infrastructure.Motion.Transports
 {
     public class SerialCommPort : ICommPort, IDisposable
     {

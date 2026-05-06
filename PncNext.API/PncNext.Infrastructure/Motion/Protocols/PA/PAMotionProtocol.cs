@@ -1,7 +1,7 @@
 using PncNext.Domain.Interfaces;
 using System.Text;
 
-namespace PncNext.Infrastructure.Motion
+namespace PncNext.Infrastructure.Motion.Protocols.PA
 {
     /// <summary>
     /// PncNext 전용 모션 프로토콜 구현 클래스 (PAMotionProtocol)
