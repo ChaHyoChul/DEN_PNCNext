@@ -4,7 +4,6 @@ namespace PncNext.Infrastructure.Motion.Channels
 {
     /// <summary>
     /// ICommPort(전송)와 IMotionProtocol(인코딩)을 결합한 IMotionChannel 구현체.
-    /// Decorator 패턴 또는 Wrapper 형태로 동작합니다.
     /// </summary>
     public class MotionChannel : IMotionChannel
     {
@@ -18,6 +17,8 @@ namespace PncNext.Infrastructure.Motion.Channels
         }
 
         public bool IsOpen => _port.IsOpen;
+
+        public IMotionProtocol Protocol => _protocol;
 
         public async Task OpenAsync() => await _port.OpenAsync();
 
@@ -39,11 +40,16 @@ namespace PncNext.Infrastructure.Motion.Channels
 
         public async Task<MotionStatus> GetStatusAsync()
         {
+            var response = await ReceiveRawAsync();
+            return _protocol.DecodeStatus(response);
+        }
+
+        public async Task<byte[]> ReceiveRawAsync()
+        {
             if (!IsOpen) await OpenAsync();
             var request = _protocol.EncodeStatusRequest();
             await _port.SendAsync(request);
-            var response = await _port.ReceiveAsync();
-            return _protocol.DecodeStatus(response);
+            return await _port.ReceiveAsync();
         }
 
         public async Task<byte[]> SendCustomCommandAsync(string command, params object[] args)

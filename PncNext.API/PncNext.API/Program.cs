@@ -16,62 +16,65 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-// Shared Memory Service (Singleton for IPC)
+// --- Core Services (Singletons) ---
 builder.Services.AddSingleton<SharedMemoryService>();
+builder.Services.AddSingleton<IMotionStateStore, MotionStateStore>();
 
-// --- Dynamic Motion Control Registration (Channel-based Architecture) ---
-builder.Services.AddScoped<IMotionControl>(sp =>
+// --- Dynamic Motion Control Registration (Changed to Singleton for Hardware Persistence) ---
+builder.Services.AddSingleton<IMotionControl>(sp =>
 {
-    var dbContext = sp.GetRequiredService<AppDbContext>();
-    
-    // DB에서 활성화된 제어기 설정을 채널(CommItems) 정보와 함께 읽어옵니다.
-    var config = dbContext.MotionControllerConfigs
-        .Include(c => c.CommItems)
-        .FirstOrDefault(c => c.IsActive);
-
-    // 설정이 없을 경우의 기본값 (Fallback)
-    if (config == null || !config.CommItems.Any())
+    // Singleton 서비스에서 Scoped 서비스(AppDbContext)를 참조하기 위해 임시 스코프 생성
+    using (var scope = sp.CreateScope())
     {
-        var fallbackChannels = new Dictionary<string, IMotionChannel> {
-            { "CMD", new MotionChannel(new TcpCommPort("127.0.0.1", 5000), new DummyProtocol()) },
-            { "STS", new MotionChannel(new TcpCommPort("127.0.0.1", 5000), new DummyProtocol()) }
-        };
-        return new PAMotionControlService(fallbackChannels);
-    }
+        var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var stateStore = sp.GetRequiredService<IMotionStateStore>();
+        
+        // DB에서 활성화된 제어기 설정을 채널(CommItems) 정보와 함께 읽어옵니다.
+        var config = dbContext.MotionControllerConfigs
+            .Include(c => c.CommItems)
+            .FirstOrDefault(c => c.IsActive);
 
-    // 모든 CommItems로부터 프로토콜이 내장된 채널 맵 생성
-    var channelMap = new Dictionary<string, IMotionChannel>();
-    foreach (var item in config.CommItems)
-    {
-        // 1. 통신 포트 생성
-        ICommPort port = item.CommType switch
+        // 설정이 없을 경우의 기본값 (Fallback)
+        if (config == null || !config.CommItems.Any())
         {
-            "Ethernet" => new TcpCommPort(item.IPAddress ?? "127.0.0.1", item.Port ?? 5000),
-            "Serial" => new SerialCommPort(item.ComPort ?? "COM1", item.BaudRate ?? 9600),
-            _ => new TcpCommPort("127.0.0.1", 5000)
-        };
+            var fallbackChannels = new Dictionary<string, IMotionChannel> {
+                { "CMD", new MotionChannel(new TcpCommPort("127.0.0.1", 5000), new DummyProtocol()) },
+                { "STS", new MotionChannel(new TcpCommPort("127.0.0.1", 5000), new DummyProtocol()) }
+            };
+            return new PAMotionControlService(fallbackChannels, stateStore);
+        }
 
-        // 2. 해당 채널 전용 프로토콜 생성
-        IMotionProtocol protocol = item.ProtocolProvider switch
+        // 모든 CommItems로부터 프로토콜이 내장된 채널 맵 생성
+        var channelMap = new Dictionary<string, IMotionChannel>();
+        foreach (var item in config.CommItems)
         {
-            "PAMotionProtocol" => new PAMotionProtocol(),
-            "INTHMotionProtocol" => new INTHMotionProtocol(),
-            "Dummy" => new DummyProtocol(),
-            _ => new DummyProtocol()
-        };
+            ICommPort port = item.CommType switch
+            {
+                "Ethernet" => new TcpCommPort(item.IPAddress ?? "127.0.0.1", item.Port ?? 5000),
+                "Serial" => new SerialCommPort(item.ComPort ?? "COM1", item.BaudRate ?? 9600),
+                _ => new TcpCommPort("127.0.0.1", 5000)
+            };
 
-        // 3. 포트와 프로토콜을 하나로 묶어 채널로 생성
-        channelMap[item.Purpose] = new MotionChannel(port, protocol);
-    }
+            IMotionProtocol protocol = item.ProtocolProvider switch
+            {
+                "PAMotionProtocol" => new PAMotionProtocol(),
+                "INTHMotionProtocol" => new INTHMotionProtocol(),
+                "Dummy" => new DummyProtocol(),
+                _ => new DummyProtocol()
+            };
 
-    // 4. 제어기 타입에 따른 서비스 반환
-    if (config.ControllerName.Contains("INTH"))
-    {
-        return new INTHMotionControlService(channelMap);
-    }
-    else
-    {
-        return new PAMotionControlService(channelMap);
+            channelMap[item.Purpose] = new MotionChannel(port, protocol);
+        }
+
+        // 제어기 타입에 따른 서비스 반환
+        if (config.ControllerName.Contains("INTH"))
+        {
+            return new INTHMotionControlService(channelMap, stateStore);
+        }
+        else
+        {
+            return new PAMotionControlService(channelMap, stateStore);
+        }
     }
 });
 
@@ -79,13 +82,11 @@ builder.Services.AddScoped<IMotionControl>(sp =>
 builder.Services.AddHostedService<MotionStatusBackgroundService>();
 
 builder.Services.AddControllers();
-// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -93,9 +94,6 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
-
 app.UseAuthorization();
-
 app.MapControllers();
-
 app.Run();
