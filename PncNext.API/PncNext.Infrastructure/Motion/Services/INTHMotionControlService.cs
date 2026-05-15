@@ -4,36 +4,32 @@ namespace PncNext.Infrastructure.Motion.Services
 {
     public class INTHMotionControlService : IMotionControl
     {
-        private readonly ICommPort _commPort;
-        private readonly IMotionProtocol _protocol;
+        private readonly IDictionary<string, IMotionChannel> _channels;
 
-        public INTHMotionControlService(ICommPort commPort, IMotionProtocol protocol)
+        public INTHMotionControlService(IDictionary<string, IMotionChannel> channels)
         {
-            _commPort = commPort;
-            _protocol = protocol;
+            _channels = channels;
+        }
+
+        private IMotionChannel GetChannel(string purpose)
+        {
+            if (_channels.TryGetValue(purpose, out var channel)) return channel;
+            return _channels.Values.First();
         }
 
         public async Task MoveAsync(double x, double y, double z, double a, double b)
         {
-            if (!_commPort.IsOpen) await _commPort.OpenAsync();
-            var data = _protocol.EncodeMove(x, y, z, a, b);
-            await _commPort.SendAsync(data);
+            await GetChannel("CMD").MoveAsync(x, y, z, a, b);
         }
 
         public async Task StopAsync()
         {
-            if (!_commPort.IsOpen) await _commPort.OpenAsync();
-            var data = _protocol.EncodeStop();
-            await _commPort.SendAsync(data);
+            await GetChannel("CMD").StopAsync();
         }
 
         public async Task<MotionStatus> GetStatusAsync()
         {
-            if (!_commPort.IsOpen) await _commPort.OpenAsync();
-            var request = _protocol.EncodeStatusRequest();
-            await _commPort.SendAsync(request);
-            var response = await _commPort.ReceiveAsync();
-            return _protocol.DecodeStatus(response);
+            return await GetChannel("STS").GetStatusAsync();
         }
     }
 }

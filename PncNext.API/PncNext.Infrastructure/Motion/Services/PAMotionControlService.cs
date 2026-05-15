@@ -4,36 +4,34 @@ namespace PncNext.Infrastructure.Motion.Services
 {
     public class PAMotionControlService : IMotionControl
     {
-        private readonly ICommPort _commPort;
-        private readonly IMotionProtocol _protocol;
+        private readonly IDictionary<string, IMotionChannel> _channels;
 
-        public PAMotionControlService(ICommPort commPort, IMotionProtocol protocol)
+        // PA 제어기는 여러 채널을 사용함 (CMD, STS, LOG, EVT 등)
+        // 각 채널은 이미 자신의 전용 프로토콜을 내장하고 있음
+        public PAMotionControlService(IDictionary<string, IMotionChannel> channels)
         {
-            _commPort = commPort;
-            _protocol = protocol;
+            _channels = channels;
+        }
+
+        private IMotionChannel GetChannel(string purpose) 
+        {
+            if (_channels.TryGetValue(purpose, out var channel)) return channel;
+            return _channels.Values.First(); // Fallback
         }
 
         public async Task MoveAsync(double x, double y, double z, double a, double b)
         {
-            if (!_commPort.IsOpen) await _commPort.OpenAsync();
-            var data = _protocol.EncodeMove(x, y, z, a, b);
-            await _commPort.SendAsync(data);
+            await GetChannel("CMD").MoveAsync(x, y, z, a, b);
         }
 
         public async Task StopAsync()
         {
-            if (!_commPort.IsOpen) await _commPort.OpenAsync();
-            var data = _protocol.EncodeStop();
-            await _commPort.SendAsync(data);
+            await GetChannel("CMD").StopAsync();
         }
 
         public async Task<MotionStatus> GetStatusAsync()
         {
-            if (!_commPort.IsOpen) await _commPort.OpenAsync();
-            var request = _protocol.EncodeStatusRequest();
-            await _commPort.SendAsync(request);
-            var response = await _commPort.ReceiveAsync();
-            return _protocol.DecodeStatus(response);
+            return await GetChannel("STS").GetStatusAsync();
         }
     }
 }

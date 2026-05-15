@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using PncNext.Infrastructure.Persistence;
 
@@ -10,9 +11,11 @@ using PncNext.Infrastructure.Persistence;
 namespace PncNext.Infrastructure.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260507091814_UpdateCommStructure")]
+    partial class UpdateCommStructure
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "8.0.26");
@@ -42,11 +45,6 @@ namespace PncNext.Infrastructure.Migrations
 
                     b.Property<int?>("Port")
                         .HasColumnType("INTEGER");
-
-                    b.Property<string>("ProtocolProvider")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("TEXT");
 
                     b.Property<string>("Purpose")
                         .IsRequired()
@@ -118,6 +116,10 @@ namespace PncNext.Infrastructure.Migrations
 
                     b.Property<bool>("IsActive")
                         .HasColumnType("INTEGER");
+
+                    b.Property<string>("ProtocolProvider")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
 
                     b.HasKey("Id");
 

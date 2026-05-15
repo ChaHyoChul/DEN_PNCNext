@@ -6,6 +6,7 @@ using PncNext.Infrastructure.Motion.Transports;
 using PncNext.Infrastructure.Motion.Protocols.PA;
 using PncNext.Infrastructure.Motion.Protocols.INTH;
 using PncNext.Infrastructure.Motion.Protocols.Dummy;
+using PncNext.Infrastructure.Motion.Channels;
 using PncNext.API.Services;
 using PncNext.Infrastructure.SharedMemory;
 
@@ -18,48 +19,59 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 // Shared Memory Service (Singleton for IPC)
 builder.Services.AddSingleton<SharedMemoryService>();
 
-// --- Dynamic Motion Control Registration (Factory Pattern) ---
+// --- Dynamic Motion Control Registration (Channel-based Architecture) ---
 builder.Services.AddScoped<IMotionControl>(sp =>
 {
     var dbContext = sp.GetRequiredService<AppDbContext>();
     
-    // DB에서 활성화된(IsActive) 제어기 설정을 읽어옵니다.
-    var config = dbContext.MotionControllerConfigs.FirstOrDefault(c => c.IsActive);
+    // DB에서 활성화된 제어기 설정을 채널(CommItems) 정보와 함께 읽어옵니다.
+    var config = dbContext.MotionControllerConfigs
+        .Include(c => c.CommItems)
+        .FirstOrDefault(c => c.IsActive);
 
     // 설정이 없을 경우의 기본값 (Fallback)
-    if (config == null)
+    if (config == null || !config.CommItems.Any())
     {
-        return new PAMotionControlService(
-            new TcpCommPort("127.0.0.1", 5000), 
-            new PAMotionProtocol());
+        var fallbackChannels = new Dictionary<string, IMotionChannel> {
+            { "CMD", new MotionChannel(new TcpCommPort("127.0.0.1", 5000), new DummyProtocol()) },
+            { "STS", new MotionChannel(new TcpCommPort("127.0.0.1", 5000), new DummyProtocol()) }
+        };
+        return new PAMotionControlService(fallbackChannels);
     }
 
-    // 1. 통신 방식(Transport) 결정
-    ICommPort commPort = config.CommType switch
+    // 모든 CommItems로부터 프로토콜이 내장된 채널 맵 생성
+    var channelMap = new Dictionary<string, IMotionChannel>();
+    foreach (var item in config.CommItems)
     {
-        "Ethernet" => new TcpCommPort(config.IPAddress ?? "127.0.0.1", config.Port ?? 5000),
-        "Serial" => new SerialCommPort(config.ComPort ?? "COM1", config.BaudRate ?? 9600),
-        _ => new TcpCommPort("127.0.0.1", 5000)
-    };
+        // 1. 통신 포트 생성
+        ICommPort port = item.CommType switch
+        {
+            "Ethernet" => new TcpCommPort(item.IPAddress ?? "127.0.0.1", item.Port ?? 5000),
+            "Serial" => new SerialCommPort(item.ComPort ?? "COM1", item.BaudRate ?? 9600),
+            _ => new TcpCommPort("127.0.0.1", 5000)
+        };
 
-    // 2. 프로토콜(Protocol) 결정
-    IMotionProtocol protocol = config.ProtocolProvider switch
-    {
-        "PAMotionProtocol" => new PAMotionProtocol(),
-        "INTHMotionProtocol" => new INTHMotionProtocol(),
-        "Dummy" => new DummyProtocol(),
-        _ => new DummyProtocol()
-    };
+        // 2. 해당 채널 전용 프로토콜 생성
+        IMotionProtocol protocol = item.ProtocolProvider switch
+        {
+            "PAMotionProtocol" => new PAMotionProtocol(),
+            "INTHMotionProtocol" => new INTHMotionProtocol(),
+            "Dummy" => new DummyProtocol(),
+            _ => new DummyProtocol()
+        };
 
-    // 3. 서비스 구현체 결정
-    // ControllerName에 INTH가 포함되어 있거나 특정 조건에 따라 서비스를 선택합니다.
+        // 3. 포트와 프로토콜을 하나로 묶어 채널로 생성
+        channelMap[item.Purpose] = new MotionChannel(port, protocol);
+    }
+
+    // 4. 제어기 타입에 따른 서비스 반환
     if (config.ControllerName.Contains("INTH"))
     {
-        return new INTHMotionControlService(commPort, protocol);
+        return new INTHMotionControlService(channelMap);
     }
     else
     {
-        return new PAMotionControlService(commPort, protocol);
+        return new PAMotionControlService(channelMap);
     }
 });
 

@@ -28,5 +28,11 @@ namespace PncNext.Infrastructure.Motion.Protocols.Dummy
             if (str.Contains("ERROR")) return MotionStatus.Error;
             return MotionStatus.Stopped;
         }
+
+        public byte[] EncodeCustom(string command, params object[] args)
+        {
+            string cmd = args.Length > 0 ? string.Format(command, args) : command;
+            return Encoding.ASCII.GetBytes(cmd);
+        }
     }
 }
