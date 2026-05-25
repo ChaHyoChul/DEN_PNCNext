@@ -2,7 +2,7 @@ using PncNext.Domain.Interfaces;
 
 namespace PncNext.Infrastructure.Motion.Services
 {
-    public class INTHMotionControlService : IMotionControl
+    public class INTHMotionControlService : IMotionControl, IDisposable
     {
         private readonly IDictionary<string, IMotionChannel> _channels;
         private readonly IMotionStateStore _stateStore;
@@ -11,6 +11,17 @@ namespace PncNext.Infrastructure.Motion.Services
         {
             _channels = channels;
             _stateStore = stateStore;
+
+            foreach (var channel in _channels.Values)
+            {
+                channel.MessageReceived += OnMessageReceived;
+            }
+        }
+
+        private void OnMessageReceived(object? sender, byte[] data)
+        {
+            // INTH 전용 파싱 및 업데이트 로직 (미구현)
+            // _stateStore.NotifyStateChanged("INTH");
         }
 
         private IMotionChannel GetChannel(string purpose)
@@ -21,26 +32,26 @@ namespace PncNext.Infrastructure.Motion.Services
 
         public async Task MoveAsync(double x, double y, double z, double a, double b)
         {
-            await GetChannel("CMD").MoveAsync(x, y, z, a, b);
+            throw new NotImplementedException("Move feature is currently being reorganized.");
         }
 
         public async Task StopAsync()
         {
-            await GetChannel("CMD").StopAsync();
+            throw new NotImplementedException("Stop feature is currently being reorganized.");
         }
 
         public async Task<MotionStatus> GetStatusAsync()
         {
-            var channel = GetChannel("STS");
-            
-            // 1. 하드웨어로부터 원시 응답 데이터를 읽어옴
-            var response = await channel.ReceiveRawAsync();
-            
-            // 2. INTH 제어기 상태 업데이트 (향후 INTH 전용 파싱 로직 추가 가능)
-            // if (channel.Protocol is INTHMotionProtocol inthProtocol) { ... }
+            var response = await GetChannel("STS").ReadFullStatusAsync();
+            return GetChannel("STS").Protocol.DecodeStatus(response);
+        }
 
-            // 3. 도메인 공통 상태 반환
-            return channel.Protocol.DecodeStatus(response);
+        public void Dispose()
+        {
+            foreach (var channel in _channels.Values)
+            {
+                channel.MessageReceived -= OnMessageReceived;
+            }
         }
     }
 }

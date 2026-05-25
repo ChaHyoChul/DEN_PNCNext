@@ -3,7 +3,7 @@ using PncNext.Infrastructure.Motion.Protocols.PA;
 
 namespace PncNext.Infrastructure.Motion.Services
 {
-    public class PAMotionControlService : IMotionControl
+    public class PAMotionControlService : IMotionControl, IDisposable
     {
         private readonly IDictionary<string, IMotionChannel> _channels;
         private readonly IMotionStateStore _stateStore;
@@ -12,6 +12,22 @@ namespace PncNext.Infrastructure.Motion.Services
         {
             _channels = channels;
             _stateStore = stateStore;
+
+            // 모든 채널의 수신 이벤트를 구독하여 상태를 자동 업데이트
+            foreach (var channel in _channels.Values)
+            {
+                channel.MessageReceived += OnMessageReceived;
+            }
+        }
+
+        private void OnMessageReceived(object? sender, byte[] data)
+        {
+            if (sender is IMotionChannel channel && channel.Protocol is PAMotionProtocol paProtocol)
+            {
+                // 실시간 수신된 데이터를 분석하여 전역 상태 저장소 업데이트
+                paProtocol.UpdateStateFromResponse(data, _stateStore.PaState);
+                _stateStore.NotifyStateChanged("PA");
+            }
         }
 
         private IMotionChannel GetChannel(string purpose) 
@@ -22,30 +38,28 @@ namespace PncNext.Infrastructure.Motion.Services
 
         public async Task MoveAsync(double x, double y, double z, double a, double b)
         {
-            await GetChannel("CMD").MoveAsync(x, y, z, a, b);
+            throw new NotImplementedException("Move feature is currently being reorganized.");
         }
 
         public async Task StopAsync()
         {
-            await GetChannel("CMD").StopAsync();
+            throw new NotImplementedException("Stop feature is currently being reorganized.");
         }
 
         public async Task<MotionStatus> GetStatusAsync()
         {
-            var channel = GetChannel("STS");
-            
-            // 1. 하드웨어로부터 원시 응답 데이터를 읽어옴
-            var response = await channel.ReceiveRawAsync();
-            
-            // 2. 프로토콜 분석 및 상세 상태 저장 (PA 전용 로직)
-            if (channel.Protocol is PAMotionProtocol paProtocol)
-            {
-                paProtocol.UpdateStateFromResponse(response, _stateStore.PaState);
-                _stateStore.NotifyStateChanged(); // 변경 알림 (필요 시 공유 메모리 기록)
-            }
+            // 비동기 엔진 방식에서는 명시적인 Receive 대신 명령만 전송하거나
+            // 이미 수신 루프에서 업데이트된 최신 상태를 반환함
+            var response = await GetChannel("STS").ReadFullStatusAsync();
+            return GetChannel("STS").Protocol.DecodeStatus(response);
+        }
 
-            // 3. 도메인 공통 상태 반환
-            return channel.Protocol.DecodeStatus(response);
+        public void Dispose()
+        {
+            foreach (var channel in _channels.Values)
+            {
+                channel.MessageReceived -= OnMessageReceived;
+            }
         }
     }
 }

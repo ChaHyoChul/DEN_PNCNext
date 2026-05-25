@@ -1,4 +1,5 @@
 using PncNext.Domain.Interfaces;
+using PncNext.Domain.Models;
 using System.Text;
 
 namespace PncNext.Infrastructure.Motion.Protocols.INTH
@@ -11,22 +12,45 @@ namespace PncNext.Infrastructure.Motion.Protocols.INTH
         private const string HEADER = "@INTH";
         private const string FOOTER = "#";
 
-        public byte[] EncodeMove(double x, double y, double z, double a, double b)
+        public MotionCommandInfo EncodeMove(double x, double y, double z, double a, double b)
         {
-            string command = $"{HEADER}|MOV|{x:F3}|{y:F3}|{z:F3}|{a:F3}|{b:F3}{FOOTER}";
-            return Encoding.ASCII.GetBytes(command);
+            string cmdKey = "MOV";
+            string command = $"{HEADER}|{cmdKey}|{x:F3}|{y:F3}|{z:F3}|{a:F3}|{b:F3}{FOOTER}";
+            return new MotionCommandInfo {
+                CommandKey = cmdKey,
+                Payload = Encoding.ASCII.GetBytes(command),
+                TimeoutMs = 5000
+            };
         }
 
-        public byte[] EncodeStop()
+        public MotionCommandInfo EncodeStop()
         {
-            string command = $"{HEADER}|STP{FOOTER}";
-            return Encoding.ASCII.GetBytes(command);
+            string cmdKey = "STP";
+            string command = $"{HEADER}|{cmdKey}{FOOTER}";
+            return new MotionCommandInfo {
+                CommandKey = cmdKey,
+                Payload = Encoding.ASCII.GetBytes(command),
+                TimeoutMs = 2000
+            };
         }
 
-        public byte[] EncodeStatusRequest()
+        public MotionCommandInfo EncodeStatusRequest()
         {
-            string command = $"{HEADER}|GET_STS{FOOTER}";
-            return Encoding.ASCII.GetBytes(command);
+            string cmdKey = "GET_STS";
+            string command = $"{HEADER}|{cmdKey}{FOOTER}";
+            return new MotionCommandInfo {
+                CommandKey = cmdKey,
+                Payload = Encoding.ASCII.GetBytes(command),
+                TimeoutMs = 1000
+            };
+        }
+
+        public string ExtractCommandKey(byte[] response)
+        {
+            if (response == null || response.Length == 0) return string.Empty;
+            string resStr = Encoding.ASCII.GetString(response);
+            var parts = resStr.Split('|');
+            return parts.Length > 1 ? parts[1] : string.Empty;
         }
 
         public MotionStatus DecodeStatus(byte[] response)
@@ -37,17 +61,22 @@ namespace PncNext.Infrastructure.Motion.Protocols.INTH
             string resStr = Encoding.ASCII.GetString(response);
 
             if (resStr.Contains("RUNNING")) return MotionStatus.Running;
-            if (resStr.Contains("IDLE")) return MotionStatus.Idle;
+            if (resStr.Contains("IDLE")) return MotionStatus.Ready; // Idle -> Ready
             if (resStr.Contains("ALARM")) return MotionStatus.Error;
-            if (resStr.Contains("PAUSE")) return MotionStatus.Stopped;
+            if (resStr.Contains("PAUSE")) return MotionStatus.Pause; // Pause -> Pause
 
-            return MotionStatus.Idle;
+            return MotionStatus.Ready;
         }
 
-        public byte[] EncodeCustom(string command, params object[] args)
+        public MotionCommandInfo EncodeCustom(string command, params object[] args)
         {
             string cmd = args.Length > 0 ? string.Format(command, args) : command;
-            return Encoding.ASCII.GetBytes($"{HEADER}|{cmd}{FOOTER}");
+            string cmdKey = cmd.Split('|')[0];
+            return new MotionCommandInfo {
+                CommandKey = cmdKey,
+                Payload = Encoding.ASCII.GetBytes($"{HEADER}|{cmd}{FOOTER}"),
+                TimeoutMs = 3000
+            };
         }
     }
 }

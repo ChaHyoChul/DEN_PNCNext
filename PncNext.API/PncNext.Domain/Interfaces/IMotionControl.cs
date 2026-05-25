@@ -2,10 +2,11 @@ namespace PncNext.Domain.Interfaces
 {
     public enum MotionStatus
     {
-        Idle,
-        Running,
-        Error,
-        Stopped
+        NotReady,   // Homing Àü 
+        Ready,      //  
+        Running,    // 
+        Pause,      // 
+        Error       // 
     }
 
     public interface IMotionControl

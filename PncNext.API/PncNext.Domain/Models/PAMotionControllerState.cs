@@ -1,12 +1,16 @@
+using PncNext.Domain.Interfaces;
+
 namespace PncNext.Domain.Models
 {
     /// <summary>
     /// PA 모션 컨트롤러의 상세 상태 데이터를 저장하는 클래스
     /// </summary>
+    
     public class PAMotionControllerState
     {
         // 제어기 상태 (0:idle, 1:running, 2:pause, 3:error)
-        public int ControllerState { get; set; }
+        //public int ControllerState { get; set; }
+        public MotionStatus ControllerState { get; set; }
         
         // 축별 정보 (6축 기준)
         public double[] Position { get; set; } = new double[6];
@@ -21,7 +25,7 @@ namespace PncNext.Domain.Models
         public bool IsServoOn { get; set; }
         public bool IsHomComplete { get; set; }
         public long MillingLineNumber { get; set; }
-        public int ErrorCode { get; set; } // GPL 에러 코드
+        public int GPLErrorCode { get; set; } // GPL 에러 코드
 
         // 툴 및 스핀들 정보
         public int CurrentToolNo { get; set; }

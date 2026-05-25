@@ -38,8 +38,9 @@ builder.Services.AddSingleton<IMotionControl>(sp =>
         if (config == null || !config.CommItems.Any())
         {
             var fallbackChannels = new Dictionary<string, IMotionChannel> {
-                { "CMD", new MotionChannel(new TcpCommPort("127.0.0.1", 5000), new DummyProtocol()) },
-                { "STS", new MotionChannel(new TcpCommPort("127.0.0.1", 5000), new DummyProtocol()) }
+                //{ "CMD", new MotionChannel(new TcpCommPort("127.0.0.1", 5000), new DummyProtocol()) },
+                //{ "STS", new MotionChannel(new TcpCommPort("127.0.0.1", 5000), new DummyProtocol()) }
+                { "STS", new MotionChannel(new TcpCommPort("127.0.0.1", 5000), new PAMotionProtocol()) }
             };
             return new PAMotionControlService(fallbackChannels, stateStore);
         }

@@ -12,11 +12,12 @@ namespace PncNext.Domain.Interfaces
         /// </summary>
         PAMotionControllerState PaState { get; }
         
-        // 향후 INTH 상태 등 추가 가능
+        // 향후 INTH 상태 등 추가 가능 (예: INTHMotionControllerState InthState { get; } )
         
         /// <summary>
-        /// 공유 메모리 등으로 데이터를 내보내는 트리거 (필요 시)
+        /// 상태 변경을 알리고 공유 메모리 등으로 데이터를 내보냅니다.
         /// </summary>
-        void NotifyStateChanged();
+        /// <param name="controllerType">상태가 변경된 제어기 식별자 ("PA", "INTH" 등)</param>
+        void NotifyStateChanged(string controllerType);
     }
 }
