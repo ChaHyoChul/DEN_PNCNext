@@ -18,9 +18,11 @@ namespace PncNext.Domain.Models
         public double[] Velocity { get; set; } = new double[6];
         
         // I/O 접점 상태 (64포트 기준)
-        public bool[] Input { get; set; } = new bool[64];
-        public bool[] Output { get; set; } = new bool[64];
-        
+        public bool[] InputSystem { get; set; } = new bool[16];
+        public bool[] OutputSystem { get; set; } = new bool[16];
+        public bool[] InputCantops { get; set; } = new bool[32];
+        public bool[] OutputCantops { get; set; } = new bool[32];
+
         // 장비 기본 상태
         public bool IsServoOn { get; set; }
         public bool IsHomComplete { get; set; }
@@ -29,6 +31,7 @@ namespace PncNext.Domain.Models
 
         // 툴 및 스핀들 정보
         public int CurrentToolNo { get; set; }
+        public double CurrentToolLength { get; set; }
         public int SpindleSpeed { get; set; } // spindle rpm
         public int SpindleOverride { get; set; }
         public int SpindleSpeedWithOverride { get; set; }
@@ -49,5 +52,9 @@ namespace PncNext.Domain.Models
         public bool IsPurgeAirState { get; set; }
         public bool IsAirRechargeStarte { get; set; } // 공압 충전 중
         public bool IsM00Command { get; set; } // NC M00 명령에 의한 Pause 여부
+
+        // 제어기 응답 에러 정보
+        public string LastErrorCode { get; set; } = string.Empty; // 예: "E9000"
+        public string LastErrorMessage { get; set; } = string.Empty; // 예: "ERROR_NETWORK"
     }
 }

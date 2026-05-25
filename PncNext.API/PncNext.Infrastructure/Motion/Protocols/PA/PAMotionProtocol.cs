@@ -13,16 +13,12 @@ namespace PncNext.Infrastructure.Motion.Protocols.PA
         private const string TERMINATOR = "\r\n";
 
         public const string CMD_RND_CDT = "RND_CDT";
-        public const string CMD_RND_STATUS = "RND_STATUS";
         public const string CMD_RND_STOP = "RND_STOP";
-        public const string CMD_MOV = "MOV";
 
         private readonly Dictionary<string, int> _commandTimeouts = new()
         {
             { CMD_RND_CDT, 1000000 },
-            { CMD_RND_STATUS, 1000 },
             { CMD_RND_STOP, 2000 },
-            { CMD_MOV, 5000 },
             { "DEFAULT", 3000 }
         };
 
@@ -81,29 +77,35 @@ namespace PncNext.Infrastructure.Motion.Protocols.PA
                 return MotionStatus.Error;
 
             string resStr = Encoding.ASCII.GetString(response).Trim();
-            bool isHomeComplete = true; // 기본값은 완료로 가정 (상태 파싱에서 업데이트됨)
+            bool isHomeComplete = true; 
             int runStatus = 0;
+            bool isControllerError = false;
 
-            // 1. RND_CDT 응답 파싱
             if (resStr.StartsWith(CMD_RND_CDT))
             {
-                var parts = resStr.Split(new[] { ' ', ',' }, StringSplitOptions.RemoveEmptyEntries);
+                var dataPart = resStr.Replace(CMD_RND_CDT, "").Trim();
+                var parts = dataPart.Split(',');
                 
-                // Program Status (Index 2 in split array)
-                if (parts.Length > 2 && parts[2].StartsWith("PS:"))
+                int offset = 0;
+                if (parts.Length > 0 && parts[0].StartsWith("E", StringComparison.OrdinalIgnoreCase))
                 {
-                    var psParts = parts[2].Split(':');
+                    offset = 1;
+                    isControllerError = true;
+                }
+
+                if (parts.Length > 1 + offset && parts[1 + offset].StartsWith("PS:"))
+                {
+                    var psParts = parts[1 + offset].Split(':');
                     if (psParts.Length >= 6) int.TryParse(psParts[5], out runStatus);
                 }
 
-                // Servo Status (Index 9 in split array) - SV:P:H:E
-                if (parts.Length > 9 && parts[9].StartsWith("SV:"))
+                if (parts.Length > 8 + offset && parts[8 + offset].StartsWith("SV:"))
                 {
-                    var svParts = parts[9].Split(':');
+                    var svParts = parts[8 + offset].Split(':');
                     if (svParts.Length >= 3) isHomeComplete = svParts[2] == "1";
                 }
                 
-                return MapToMotionStatus(runStatus, isHomeComplete);
+                return isControllerError ? MotionStatus.Error : MapToMotionStatus(runStatus, isHomeComplete);
             }
 
             return MotionStatus.Ready;
@@ -137,37 +139,57 @@ namespace PncNext.Infrastructure.Motion.Protocols.PA
             string dataPart = payload.Replace(CMD_RND_CDT, "").Trim();
             string[] parts = dataPart.Split(',');
 
-            if (parts.Length < 20) return;
+            // 정상 응답은 18개, 에러 응답은 20개 필드로 구성됨
+            if (parts.Length < 18) return;
+
+            // 제어기 에러 상태 체크
+            int offset = 0;
+            bool isControllerError = false;
+            if (parts[0].StartsWith("E", StringComparison.OrdinalIgnoreCase))
+            {
+                offset = 1;
+                isControllerError = true;
+                state.LastErrorCode = parts[0];
+                // 에러 발생 시 마지막 필드가 에러 메시지
+                state.LastErrorMessage = parts[parts.Length - 1];
+            }
+            else
+            {
+                state.LastErrorCode = string.Empty;
+                state.LastErrorMessage = string.Empty;
+            }
 
             try
             {
-                // 1. Servo Status (Index 8) - SV:P:H:E
-                var svParts = parts[8].Split(':');
+                // 1. Servo Status (Index 8 + offset)
+                var svParts = parts[8 + offset].Split(':');
                 if (svParts.Length >= 4)
                 {
                     state.IsServoOn = svParts[1] == "1";
                     state.IsHomComplete = svParts[2] == "1";
                 }
 
-                // 2. Program Status (Index 1) - PS:File:B:L:E:R
-                var psParts = parts[1].Split(':');
-                if (psParts.Length >= 6)
+                // 2. Program Status (Index 1 + offset)
+                var psParts = parts[1 + offset].Split(':');
+                //if (psParts.Length >= 6)
+                if (psParts.Length == 4) 
                 {
-                    if (long.TryParse(psParts[3], out long line)) state.MillingLineNumber = line;
-                    if (int.TryParse(psParts[4], out int err)) state.GPLErrorCode = err;
-                    
+                    // LineNumber
+                    if (long.TryParse(psParts[1], out long line)) state.MillingLineNumber = line;
+                    // GPL ErrorCode
+                    if (int.TryParse(psParts[2], out int err)) state.GPLErrorCode = err;
+                    // RunMode
                     int run = 0;
-                    if (int.TryParse(psParts[5], out run))
+                    if (int.TryParse(psParts[3], out run))
                     {
-                        // 원점 복귀 여부와 제어기 실행 상태를 결합하여 MotionStatus 결정
-                        state.ControllerState = MapToMotionStatus(run, state.IsHomComplete);
+                        state.ControllerState = isControllerError ? MotionStatus.Error : MapToMotionStatus(run, state.IsHomComplete);
                     }
                 }
 
-                // 3. Positions (Index 2~7)
+                // 3. Positions (Index 2+offset ~ 7+offset)
                 for (int i = 0; i < 6; i++)
                 {
-                    var posParts = parts[i + 2].Split(':');
+                    var posParts = parts[i + 2 + offset].Split(':');
                     if (posParts.Length >= 2)
                     {
                         if (double.TryParse(posParts[1], CultureInfo.InvariantCulture, out double val))
@@ -175,20 +197,22 @@ namespace PncNext.Infrastructure.Motion.Protocols.PA
                     }
                 }
 
-                // 4. Tool & Spindle
-                if (int.TryParse(parts[9], out int tNo)) state.CurrentToolNo = tNo;
-                if (int.TryParse(parts[11], out int sSpd)) state.SpindleSpeed = sSpd;
-                if (int.TryParse(parts[12], out int sOv)) state.SpindleOverride = sOv;
-                if (int.TryParse(parts[13], out int mOv)) state.MotorOverride = mOv;
-                if (int.TryParse(parts[14], out int mFd)) state.MotorFeedrate = mFd;
+                // 4. Tool & Spindle (Index 9+offset ~ 14+offset)
+                if (int.TryParse(parts[9 + offset], out int tNo)) state.CurrentToolNo = tNo;
+                if (double.TryParse(parts[10 + offset], out double tLength)) state.CurrentToolLength = tLength;
+                if (int.TryParse(parts[11 + offset], out int sSpd)) state.SpindleSpeed = sSpd;
+                if (int.TryParse(parts[12 + offset], out int sOv)) state.SpindleOverride = sOv;
+                if (int.TryParse(parts[13 + offset], out int mOv)) state.MotorOverride = mOv;
+                if (int.TryParse(parts[14 + offset], out int mFd)) state.MotorFeedrate = mFd;
 
-                // 5. I/O & Flags
-                UpdateIOArray(state.Input, parts[15], 0);
-                UpdateIOArray(state.Input, parts[17], 8);
-                UpdateIOArray(state.Output, parts[16], 0);
-                UpdateIOArray(state.Output, parts[18], 8);
+                // 5. I/O => System + Cantops (System 15+offset, 16+offset, Cantops 17+offset, 18+offset)
+                UpdateIOArray(state.InputSystem, parts[15 + offset], 0);  // System Input 
+                UpdateIOArray(state.OutputSystem, parts[16 + offset], 0); // System Output 
+                UpdateIOArray(state.InputSystem, parts[17 + offset], 0);  // Cantops Input 
+                UpdateIOArray(state.OutputSystem, parts[18 + offset], 0); // Cantops Output 
 
-                if (int.TryParse(parts[19], out int flags))
+                // 6. Flags (Index 17+offset)
+                if (int.TryParse(parts[19 + offset], out int flags))
                 {
                     state.IoBoardState = (flags & 0x0001) != 0 ? 1 : 0;
                     state.SpindleBoardState = (flags & 0x0002) != 0 ? 1 : 0;
@@ -225,21 +249,16 @@ namespace PncNext.Infrastructure.Motion.Protocols.PA
             catch { }
         }
 
-        /// <summary>
-        /// 제어기의 원시 실행 상태와 원점 복귀 여부를 조합하여 도메인 MotionStatus로 매핑합니다.
-        /// </summary>
         private MotionStatus MapToMotionStatus(int runStatus, bool isHomeComplete)
         {
-            // 1순위: 원점 복귀가 되지 않았다면 무조건 NotReady
             if (!isHomeComplete) return MotionStatus.NotReady;
 
-            // 2순위: 제어기 실행 상태에 따른 매핑
             return runStatus switch
             {
-                0 => MotionStatus.Ready,    // Idle -> Ready
-                1 => MotionStatus.Running,  // Running
-                2 => MotionStatus.Pause,    // Pause
-                3 => MotionStatus.Error,    // Error
+                0 => MotionStatus.Ready,
+                1 => MotionStatus.Running,
+                2 => MotionStatus.Pause,
+                3 => MotionStatus.Error,
                 _ => MotionStatus.Ready
             };
         }
