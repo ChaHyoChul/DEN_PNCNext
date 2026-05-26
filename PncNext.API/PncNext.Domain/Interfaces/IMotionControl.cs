@@ -5,7 +5,7 @@ namespace PncNext.Domain.Interfaces
     /// </summary>
     public enum MotionStatus
     {
-        NotConnected, // 제어기와 통신 연결이 끊긴 상태 (최우선순위)
+        NotConnected, // 제어기와 통신 연결이 끊긴 상태
         NotReady,     // 연결은 되었으나 원점 복귀(Homing)가 되지 않은 상태
         Ready,        // 가공 준비 완료 상태
         Running,      // 가공 또는 동작 중
@@ -26,7 +26,17 @@ namespace PncNext.Domain.Interfaces
         Task CloseAsync();
 
         Task MoveAsync(double x, double y, double z, double a, double b);
-        Task StopAsync();
+        
+        /// <summary>
+        /// 장비를 정지시킵니다.
+        /// </summary>
+        /// <param name="mode">정지 모드 (0: 일반 정지, 1: 급정지 등)</param>
+        Task StopAsync(int mode);
+
+        /// <summary>
+        /// 장비 원점 복귀를 수행합니다.
+        /// </summary>
+        Task HomeAsync();
         
         /// <summary>
         /// 현재 장비의 통합 상태를 조회합니다.

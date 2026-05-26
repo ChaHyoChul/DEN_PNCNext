@@ -6,6 +6,26 @@ namespace PncNext.Infrastructure.Motion.Protocols.Dummy
 {
     public class DummyProtocol : IMotionProtocol
     {
+        public MotionCommandInfo EncodeStop(int mode)
+        {
+            string cmdKey = "STOP";
+            return new MotionCommandInfo {
+                CommandKey = cmdKey,
+                Payload = Encoding.ASCII.GetBytes($"{cmdKey} {mode}"),
+                TimeoutMs = 1000
+            };
+        }
+
+        public MotionCommandInfo EncodeHome()
+        {
+            string cmdKey = "HOME";
+            return new MotionCommandInfo {
+                CommandKey = cmdKey,
+                Payload = Encoding.ASCII.GetBytes(cmdKey),
+                TimeoutMs = 5000 // 시뮬레이션은 빠르게
+            };
+        }
+
         public MotionCommandInfo EncodeStatusRequest()
         {
             string cmdKey = "STATUS?";
@@ -21,15 +41,6 @@ namespace PncNext.Infrastructure.Motion.Protocols.Dummy
             if (response == null || response.Length == 0) return string.Empty;
             string resStr = Encoding.ASCII.GetString(response);
             return resStr.Split(' ')[0];
-        }
-
-        public MotionStatus DecodeStatus(byte[] response)
-        {
-            var str = Encoding.ASCII.GetString(response);
-            if (str.Contains("IDLE")) return MotionStatus.Ready;
-            if (str.Contains("RUNNING")) return MotionStatus.Running;
-            if (str.Contains("ERROR")) return MotionStatus.Error;
-            return MotionStatus.Ready;
         }
 
         public MotionCommandInfo EncodeCustom(string command, params object[] args)

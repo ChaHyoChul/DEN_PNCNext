@@ -6,7 +6,6 @@ namespace PncNext.Infrastructure.Motion.Channels
 {
     /// <summary>
     /// ICommPort(전송)와 IMotionProtocol(인코딩)을 결합한 IMotionChannel 구현체.
-    /// 비동기 수신 루프 및 타임아웃 에러 처리 기능을 포함합니다.
     /// </summary>
     public class MotionChannel : IMotionChannel, IDisposable
     {
@@ -30,13 +29,17 @@ namespace PncNext.Infrastructure.Motion.Channels
 
         public async Task OpenAsync()
         {
-            // 재연결 시도를 위해 기존 연결 및 루프 정리
-            if (IsOpen || _receiveLoopTask != null)
+            if (IsOpen && !IsFaulted)
+            {
+                return;
+            }
+
+            if (IsFaulted || _receiveLoopTask != null)
             {
                 await CloseAsync();
             }
 
-            IsFaulted = false; // 연결 시도 시 에러 상태 초기화
+            IsFaulted = false; 
             
             await _port.OpenAsync();
             StartReceiveLoop();
@@ -70,6 +73,7 @@ namespace PncNext.Infrastructure.Motion.Channels
                 tcs.TrySetCanceled();
             }
             _pendingRequests.Clear();
+            _receiveLoopTask = null;
         }
 
         private async Task ReceiveLoopAsync(CancellationToken ct)
@@ -81,11 +85,8 @@ namespace PncNext.Infrastructure.Motion.Channels
                     byte[] data = await _port.ReceiveAsync();
                     if (data == null || data.Length == 0) continue;
 
-                    // 1. 이벤트 발생 (상태 자동 업데이트용)
                     MessageReceived?.Invoke(this, data);
 
-                    // 2. 요청-응답 매칭 (TCS 완료)
-                    // 프로토콜에서 응답의 키를 추출하여 정확한 대기자에게 전달
                     string responseKey = _protocol.ExtractCommandKey(data);
                     if (!string.IsNullOrEmpty(responseKey) && _pendingRequests.TryRemove(responseKey, out var tcs))
                     {
@@ -105,13 +106,28 @@ namespace PncNext.Infrastructure.Motion.Channels
         private void SetFault()
         {
             IsFaulted = true;
-            _ = CloseAsync();
+            _ = CloseAsync(); 
+        }
+
+        public async Task StopAsync(int mode)
+        {
+            CheckState();
+            var cmdInfo = _protocol.EncodeStop(mode);
+            await SendAndReceiveAsync(cmdInfo);
+        }
+
+        public async Task HomeAsync()
+        {
+            CheckState();
+            var cmdInfo = _protocol.EncodeHome();
+            // 원점 복귀는 장시간 대기하므로 프로토콜에서 정의된 긴 타임아웃이 적용됨
+            await SendAndReceiveAsync(cmdInfo);
         }
 
         public async Task<MotionStatus> GetStatusAsync()
         {
             var response = await ReadFullStatusAsync();
-            return _protocol.DecodeStatus(response);
+            return MotionStatus.Ready; 
         }
 
         public async Task<byte[]> ReadFullStatusAsync()
@@ -126,6 +142,11 @@ namespace PncNext.Infrastructure.Motion.Channels
             return await SendAndReceiveAsync(cmdInfo);
         }
 
+        public async Task<byte[]> ReceiveRawAsync()
+        {
+            return await ReadFullStatusAsync();
+        }
+
         private async Task<byte[]> SendAndReceiveAsync(MotionCommandInfo cmdInfo)
         {
             CheckState();
@@ -138,7 +159,6 @@ namespace PncNext.Infrastructure.Motion.Channels
             {
                 await _port.SendAsync(cmdInfo.Payload);
 
-                // 프로토콜이 지정한 타임아웃 시간 적용
                 using var timeoutCts = new CancellationTokenSource(TimeSpan.FromMilliseconds(cmdInfo.TimeoutMs));
                 using (timeoutCts.Token.Register(() => tcs.TrySetException(new TimeoutException($"Command '{cmdInfo.CommandKey}' timed out after {cmdInfo.TimeoutMs}ms."))))
                 {

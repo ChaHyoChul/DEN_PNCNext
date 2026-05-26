@@ -36,7 +36,6 @@ namespace PncNext.Infrastructure.Motion.Services
 
         private void OnMessageReceived(object? sender, byte[] data)
         {
-            // INTH 전용 파싱 로직 (필요 시 구현)
         }
 
         private IMotionChannel GetChannel(string purpose)
@@ -50,24 +49,29 @@ namespace PncNext.Infrastructure.Motion.Services
             throw new NotImplementedException("Move feature is currently being reorganized.");
         }
 
-        public async Task StopAsync()
+        public async Task StopAsync(int mode)
         {
-            throw new NotImplementedException("Stop feature is currently being reorganized.");
+            await GetChannel("CMD").StopAsync(mode);
+        }
+
+        public async Task HomeAsync()
+        {
+            await GetChannel("CMD").HomeAsync();
         }
 
         public async Task<MotionStatus> GetStatusAsync()
         {
             var channel = GetChannel("STS");
             
-            if (!channel.IsOpen || channel.IsFaulted)
+            if (channel.IsFaulted)
             {
                 return MotionStatus.NotConnected;
             }
 
             try 
             {
-                var response = await channel.ReadFullStatusAsync();
-                return channel.Protocol.DecodeStatus(response);
+                await channel.ReadFullStatusAsync();
+                return MotionStatus.NotConnected; // 임시
             }
             catch (Exception)
             {

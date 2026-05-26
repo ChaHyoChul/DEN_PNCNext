@@ -25,7 +25,22 @@ namespace PncNext.Domain.Interfaces
         /// </summary>
         void ResetFault();
 
+        /// <summary>
+        /// 장비 정지 명령을 전송합니다.
+        /// </summary>
+        Task StopAsync(int mode);
+
+        /// <summary>
+        /// 장비 원점 복귀 명령을 전송합니다.
+        /// </summary>
+        Task HomeAsync();
+
         Task<MotionStatus> GetStatusAsync();
+
+        /// <summary>
+        /// 하부 통신 포트를 통해 장비의 전체 상태 데이터를 요청하고 원시 바이트로 읽어옵니다.
+        /// </summary>
+        Task<byte[]> ReadFullStatusAsync();
 
         /// <summary>
         /// 특정 서비스에서 사용하는 커스텀 명령을 전송합니다.
@@ -38,8 +53,8 @@ namespace PncNext.Domain.Interfaces
         IMotionProtocol Protocol { get; }
 
         /// <summary>
-        /// 하부 통신 포트를 통해 장비의 전체 상태 데이터를 요청하고 원시 바이트로 읽어옵니다.
+        /// 하부 통신 포트의 원시 읽기 기능을 제공합니다.
         /// </summary>
-        Task<byte[]> ReadFullStatusAsync();
+        Task<byte[]> ReceiveRawAsync();
     }
 }

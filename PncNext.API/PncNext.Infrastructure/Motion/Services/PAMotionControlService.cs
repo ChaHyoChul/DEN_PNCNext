@@ -55,29 +55,45 @@ namespace PncNext.Infrastructure.Motion.Services
             throw new NotImplementedException("Move feature is currently being reorganized.");
         }
 
-        public async Task StopAsync()
+        public async Task StopAsync(int mode)
         {
-            throw new NotImplementedException("Stop feature is currently being reorganized.");
+            await GetChannel("CMD").StopAsync(mode);
+        }
+
+        public async Task HomeAsync()
+        {
+            // 원점 복귀 명령은 CMD 채널 사용
+            await GetChannel("CMD").HomeAsync();
         }
 
         public async Task<MotionStatus> GetStatusAsync()
         {
             var channel = GetChannel("STS");
             
-            // 통신 단절 상태 우선 체크
-            if (!channel.IsOpen || channel.IsFaulted)
+            if (channel.IsFaulted)
             {
+                UpdateStoreToNotConnected();
                 return MotionStatus.NotConnected;
             }
 
             try 
             {
-                var response = await channel.ReadFullStatusAsync();
-                return channel.Protocol.DecodeStatus(response);
+                await channel.ReadFullStatusAsync();
+                return _stateStore.PaState.ControllerState;
             }
             catch (Exception)
             {
+                UpdateStoreToNotConnected();
                 return MotionStatus.NotConnected;
+            }
+        }
+
+        private void UpdateStoreToNotConnected()
+        {
+            if (_stateStore.PaState.ControllerState != MotionStatus.NotConnected)
+            {
+                _stateStore.PaState.ControllerState = MotionStatus.NotConnected;
+                _stateStore.NotifyStateChanged("PA");
             }
         }
 

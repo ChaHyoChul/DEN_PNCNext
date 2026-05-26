@@ -15,15 +15,37 @@ namespace PncNext.Infrastructure.Motion.Protocols.PA
         // 명령어 상수 정의
         public const string CMD_RND_CDT = "RND_CDT";
         public const string CMD_RND_STOP = "RND_STOP";
+        public const string CMD_RND_HOME = "RND_HOME";
 
         // 명령별 기본 타임아웃 설정 (밀리초)
         private readonly Dictionary<string, int> _commandTimeouts = new()
         {
             { CMD_RND_CDT, 1000 },
-            { CMD_RND_STOP, 2000 }
+            { CMD_RND_STOP, 2000 },
+            { CMD_RND_HOME, 300000 } // 5분 (원점 복귀 장시간 소요 대비)
         };
 
-        private int GetTimeout(string command) => _commandTimeouts.TryGetValue(command, out var timeout) ? timeout : _commandTimeouts["DEFAULT"];
+        private int GetTimeout(string command) => _commandTimeouts.TryGetValue(command, out var timeout) ? timeout : 3000;
+
+        public MotionCommandInfo EncodeStop(int mode)
+        {
+            string payload = string.Format(CultureInfo.InvariantCulture, "{0} {1}{2}", CMD_RND_STOP, mode, TERMINATOR);
+            return new MotionCommandInfo {
+                CommandKey = CMD_RND_STOP,
+                Payload = Encoding.ASCII.GetBytes(payload),
+                TimeoutMs = GetTimeout(CMD_RND_STOP)
+            };
+        }
+
+        public MotionCommandInfo EncodeHome()
+        {
+            // 규격: RND_HOME\r\n
+            return new MotionCommandInfo {
+                CommandKey = CMD_RND_HOME,
+                Payload = Encoding.ASCII.GetBytes($"{CMD_RND_HOME}{TERMINATOR}"),
+                TimeoutMs = GetTimeout(CMD_RND_HOME)
+            };
+        }
 
         public MotionCommandInfo EncodeStatusRequest()
         {
@@ -45,50 +67,9 @@ namespace PncNext.Infrastructure.Motion.Protocols.PA
             {
                 CMD_RND_CDT => CMD_RND_CDT,
                 CMD_RND_STOP => CMD_RND_STOP,
+                CMD_RND_HOME => CMD_RND_HOME,
                 _ => firstWord
             };
-        }
-
-        public MotionStatus DecodeStatus(byte[] response)
-        {
-            if (response == null || response.Length == 0)
-                return MotionStatus.Error;
-
-            string resStr = Encoding.ASCII.GetString(response).Trim();
-            bool isHomeComplete = true; 
-            int runStatus = 0;
-            bool isControllerError = false;
-
-            if (resStr.StartsWith(CMD_RND_CDT))
-            {
-                var dataPart = resStr.Replace(CMD_RND_CDT, "").Trim();
-                var parts = dataPart.Split(',');
-                
-                int offset = 0;
-                if (parts.Length > 0 && parts[0].StartsWith("E", StringComparison.OrdinalIgnoreCase))
-                {
-                    offset = 1;
-                    isControllerError = true;
-                }
-
-                if (parts.Length > 1 + offset && parts[1 + offset].StartsWith("PS:"))
-                {
-                    var psParts = parts[1 + offset].Split(':');
-                    // PS:File:B:L:E:R (6개) 또는 PS:L:E:R (4개) 대응
-                    if (psParts.Length >= 6) int.TryParse(psParts[5], out runStatus);
-                    else if (psParts.Length >= 4) int.TryParse(psParts[3], out runStatus);
-                }
-
-                if (parts.Length > 8 + offset && parts[8 + offset].StartsWith("SV:"))
-                {
-                    var svParts = parts[8 + offset].Split(':');
-                    if (svParts.Length >= 3) isHomeComplete = svParts[2] == "1";
-                }
-                
-                return isControllerError ? MotionStatus.Error : MapToMotionStatus(runStatus, isHomeComplete);
-            }
-
-            return MotionStatus.Ready;
         }
 
         public MotionCommandInfo EncodeCustom(string command, params object[] args)
@@ -123,7 +104,7 @@ namespace PncNext.Infrastructure.Motion.Protocols.PA
 
             int offset = 0;
             bool isControllerError = false;
-            if (parts[0].StartsWith("E", StringComparison.OrdinalIgnoreCase))
+            if (parts.Length > 0 && parts[0].StartsWith("E", StringComparison.OrdinalIgnoreCase))
             {
                 offset = 1;
                 isControllerError = true;
@@ -138,7 +119,6 @@ namespace PncNext.Infrastructure.Motion.Protocols.PA
 
             try
             {
-                // 1. Servo Status (Index 8 + offset)
                 var svParts = parts[8 + offset].Split(':');
                 if (svParts.Length >= 4)
                 {
@@ -146,7 +126,6 @@ namespace PncNext.Infrastructure.Motion.Protocols.PA
                     state.IsHomComplete = svParts[2] == "1";
                 }
 
-                // 2. Program Status (Index 1 + offset)
                 var psParts = parts[1 + offset].Split(':');
                 if (psParts.Length >= 4) 
                 {
@@ -164,7 +143,6 @@ namespace PncNext.Infrastructure.Motion.Protocols.PA
                     }
                 }
 
-                // 3. Positions (Index 2+offset ~ 7+offset)
                 for (int i = 0; i < 6; i++)
                 {
                     var posParts = parts[i + 2 + offset].Split(':');
@@ -175,7 +153,6 @@ namespace PncNext.Infrastructure.Motion.Protocols.PA
                     }
                 }
 
-                // 4. Tool & Spindle
                 if (int.TryParse(parts[9 + offset], out int tNo)) state.CurrentToolNo = tNo;
                 if (parts.Length > 10 + offset && double.TryParse(parts[10 + offset], CultureInfo.InvariantCulture, out double tLen)) state.CurrentToolLength = tLen;
                 if (int.TryParse(parts[11 + offset], out int sSpd)) state.SpindleSpeed = sSpd;
@@ -183,17 +160,14 @@ namespace PncNext.Infrastructure.Motion.Protocols.PA
                 if (int.TryParse(parts[13 + offset], out int mOv)) state.MotorOverride = mOv;
                 if (int.TryParse(parts[14 + offset], out int mFd)) state.MotorFeedrate = mFd;
 
-                // 5. I/O (System: 15, 16 / Cantops: 17, 18)
                 UpdateIOArray(state.InputSystem, parts[15 + offset], 0);
                 UpdateIOArray(state.OutputSystem, parts[16 + offset], 0);
-                if (parts.Length > 18 + offset) // Cantops 필드가 있는 경우
+                if (parts.Length > 18 + offset) 
                 {
                     UpdateIOArray(state.InputCantops, parts[17 + offset], 0);
                     UpdateIOArray(state.OutputCantops, parts[18 + offset], 0);
                 }
 
-                // 6. Flags (Index 17+offset 또는 19+offset - 필드 수에 따라 가변적일 수 있음)
-                // 제공된 예시 및 이전 로직을 기반으로 마지막 전 필드 혹은 17/19번 확인
                 int flagsIdx = parts.Length > 20 ? 19 + offset : 17 + offset;
                 if (int.TryParse(parts[flagsIdx], out int flags))
                 {
@@ -245,5 +219,8 @@ namespace PncNext.Infrastructure.Motion.Protocols.PA
                 _ => MotionStatus.Ready
             };
         }
+
+        // 미사용 인터페이스 메서드 Stub
+        public MotionCommandInfo EncodeMove(double x, double y, double z, double a, double b) => throw new NotImplementedException();
     }
 }

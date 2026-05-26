@@ -24,6 +24,21 @@ namespace PncNext.API.Services
         {
             _logger.LogInformation("Motion Status Monitoring Service is starting.");
 
+            // [추가] 초기화 가속: 서비스 시작 직후 최초 1회 명시적 연결 시도
+            try
+            {
+                using (var scope = _serviceProvider.CreateScope())
+                {
+                    var motionControl = scope.ServiceProvider.GetRequiredService<IMotionControl>();
+                    await motionControl.OpenAsync();
+                    _logger.LogInformation("Initial connection attempt completed.");
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"Initial connection attempt failed: {ex.Message}");
+            }
+
             // 100ms 주기의 고성능 타이머 (.NET 8)
             using var timer = new PeriodicTimer(TimeSpan.FromMilliseconds(100));
 
@@ -34,7 +49,7 @@ namespace PncNext.API.Services
                     using (var scope = _serviceProvider.CreateScope())
                     {
                         var motionControl = scope.ServiceProvider.GetRequiredService<IMotionControl>();
-                        
+
                         // 1. 현재 상태 조회
                         var status = await motionControl.GetStatusAsync();
 
@@ -48,7 +63,7 @@ namespace PncNext.API.Services
 
                                 try
                                 {
-                                    // 기존 채널들을 닫고 새로 오픈 시도
+                                    // 기존 채널들을 닫고 새로 오픈 시도 (MotionChannel 내부에서 멱등성 처리됨)
                                     await motionControl.OpenAsync();
                                     _logger.LogInformation("장비 재연결 성공.");
                                 }
@@ -57,11 +72,6 @@ namespace PncNext.API.Services
                                     _logger.LogError($"재연결 시도 실패: {ex.Message}");
                                 }
                             }
-                        }
-                        else
-                        {
-                            // 정상 연결 상태인 경우 추가 작업 (예: 가공 진척도 체크 등)
-                            // _logger.LogDebug($"현재 장비 상태: {status}");
                         }
                     }
                 }
