@@ -6,26 +6,6 @@ namespace PncNext.Infrastructure.Motion.Protocols.Dummy
 {
     public class DummyProtocol : IMotionProtocol
     {
-        public MotionCommandInfo EncodeMove(double x, double y, double z, double a, double b)
-        {
-            string cmdKey = "MOVE";
-            return new MotionCommandInfo {
-                CommandKey = cmdKey,
-                Payload = Encoding.ASCII.GetBytes($"{cmdKey} X{x} Y{y} Z{z} A{a} B{b}"),
-                TimeoutMs = 2000
-            };
-        }
-
-        public MotionCommandInfo EncodeStop()
-        {
-            string cmdKey = "STOP";
-            return new MotionCommandInfo {
-                CommandKey = cmdKey,
-                Payload = Encoding.ASCII.GetBytes(cmdKey),
-                TimeoutMs = 1000
-            };
-        }
-
         public MotionCommandInfo EncodeStatusRequest()
         {
             string cmdKey = "STATUS?";
@@ -46,7 +26,7 @@ namespace PncNext.Infrastructure.Motion.Protocols.Dummy
         public MotionStatus DecodeStatus(byte[] response)
         {
             var str = Encoding.ASCII.GetString(response);
-            if (str.Contains("IDLE")) return MotionStatus.Ready; // Idle -> Ready
+            if (str.Contains("IDLE")) return MotionStatus.Ready;
             if (str.Contains("RUNNING")) return MotionStatus.Running;
             if (str.Contains("ERROR")) return MotionStatus.Error;
             return MotionStatus.Ready;

@@ -13,10 +13,25 @@ namespace PncNext.Infrastructure.Motion.Services
             _channels = channels;
             _stateStore = stateStore;
 
-            // 모든 채널의 수신 이벤트를 구독하여 상태를 자동 업데이트
             foreach (var channel in _channels.Values)
             {
                 channel.MessageReceived += OnMessageReceived;
+            }
+        }
+
+        public async Task OpenAsync()
+        {
+            foreach (var channel in _channels.Values)
+            {
+                await channel.OpenAsync();
+            }
+        }
+
+        public async Task CloseAsync()
+        {
+            foreach (var channel in _channels.Values)
+            {
+                await channel.CloseAsync();
             }
         }
 
@@ -24,7 +39,6 @@ namespace PncNext.Infrastructure.Motion.Services
         {
             if (sender is IMotionChannel channel && channel.Protocol is PAMotionProtocol paProtocol)
             {
-                // 실시간 수신된 데이터를 분석하여 전역 상태 저장소 업데이트
                 paProtocol.UpdateStateFromResponse(data, _stateStore.PaState);
                 _stateStore.NotifyStateChanged("PA");
             }
@@ -33,7 +47,7 @@ namespace PncNext.Infrastructure.Motion.Services
         private IMotionChannel GetChannel(string purpose) 
         {
             if (_channels.TryGetValue(purpose, out var channel)) return channel;
-            return _channels.Values.First(); // Fallback
+            return _channels.Values.First();
         }
 
         public async Task MoveAsync(double x, double y, double z, double a, double b)
@@ -48,10 +62,23 @@ namespace PncNext.Infrastructure.Motion.Services
 
         public async Task<MotionStatus> GetStatusAsync()
         {
-            // 비동기 엔진 방식에서는 명시적인 Receive 대신 명령만 전송하거나
-            // 이미 수신 루프에서 업데이트된 최신 상태를 반환함
-            var response = await GetChannel("STS").ReadFullStatusAsync();
-            return GetChannel("STS").Protocol.DecodeStatus(response);
+            var channel = GetChannel("STS");
+            
+            // 통신 단절 상태 우선 체크
+            if (!channel.IsOpen || channel.IsFaulted)
+            {
+                return MotionStatus.NotConnected;
+            }
+
+            try 
+            {
+                var response = await channel.ReadFullStatusAsync();
+                return channel.Protocol.DecodeStatus(response);
+            }
+            catch (Exception)
+            {
+                return MotionStatus.NotConnected;
+            }
         }
 
         public void Dispose()

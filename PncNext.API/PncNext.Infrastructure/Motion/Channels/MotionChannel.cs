@@ -30,13 +30,16 @@ namespace PncNext.Infrastructure.Motion.Channels
 
         public async Task OpenAsync()
         {
-            if (IsFaulted) throw new InvalidOperationException("Channel is in faulted state. Call ResetFault() first.");
-            
-            if (!IsOpen)
+            // 재연결 시도를 위해 기존 연결 및 루프 정리
+            if (IsOpen || _receiveLoopTask != null)
             {
-                await _port.OpenAsync();
-                StartReceiveLoop();
+                await CloseAsync();
             }
+
+            IsFaulted = false; // 연결 시도 시 에러 상태 초기화
+            
+            await _port.OpenAsync();
+            StartReceiveLoop();
         }
 
         public async Task CloseAsync()

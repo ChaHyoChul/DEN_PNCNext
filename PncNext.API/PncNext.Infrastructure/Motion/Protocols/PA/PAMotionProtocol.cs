@@ -25,15 +25,6 @@ namespace PncNext.Infrastructure.Motion.Protocols.PA
 
         private int GetTimeout(string command) => _commandTimeouts.TryGetValue(command, out var timeout) ? timeout : _commandTimeouts["DEFAULT"];
 
-        public MotionCommandInfo EncodeStop()
-        {
-            return new MotionCommandInfo {
-                CommandKey = CMD_RND_STOP,
-                Payload = Encoding.ASCII.GetBytes($"{CMD_RND_STOP}{TERMINATOR}"),
-                TimeoutMs = GetTimeout(CMD_RND_STOP)
-            };
-        }
-
         public MotionCommandInfo EncodeStatusRequest()
         {
             return new MotionCommandInfo {

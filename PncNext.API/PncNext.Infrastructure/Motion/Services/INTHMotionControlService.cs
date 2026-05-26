@@ -18,10 +18,25 @@ namespace PncNext.Infrastructure.Motion.Services
             }
         }
 
+        public async Task OpenAsync()
+        {
+            foreach (var channel in _channels.Values)
+            {
+                await channel.OpenAsync();
+            }
+        }
+
+        public async Task CloseAsync()
+        {
+            foreach (var channel in _channels.Values)
+            {
+                await channel.CloseAsync();
+            }
+        }
+
         private void OnMessageReceived(object? sender, byte[] data)
         {
-            // INTH 전용 파싱 및 업데이트 로직 (미구현)
-            // _stateStore.NotifyStateChanged("INTH");
+            // INTH 전용 파싱 로직 (필요 시 구현)
         }
 
         private IMotionChannel GetChannel(string purpose)
@@ -42,8 +57,22 @@ namespace PncNext.Infrastructure.Motion.Services
 
         public async Task<MotionStatus> GetStatusAsync()
         {
-            var response = await GetChannel("STS").ReadFullStatusAsync();
-            return GetChannel("STS").Protocol.DecodeStatus(response);
+            var channel = GetChannel("STS");
+            
+            if (!channel.IsOpen || channel.IsFaulted)
+            {
+                return MotionStatus.NotConnected;
+            }
+
+            try 
+            {
+                var response = await channel.ReadFullStatusAsync();
+                return channel.Protocol.DecodeStatus(response);
+            }
+            catch (Exception)
+            {
+                return MotionStatus.NotConnected;
+            }
         }
 
         public void Dispose()

@@ -12,28 +12,6 @@ namespace PncNext.Infrastructure.Motion.Protocols.INTH
         private const string HEADER = "@INTH";
         private const string FOOTER = "#";
 
-        public MotionCommandInfo EncodeMove(double x, double y, double z, double a, double b)
-        {
-            string cmdKey = "MOV";
-            string command = $"{HEADER}|{cmdKey}|{x:F3}|{y:F3}|{z:F3}|{a:F3}|{b:F3}{FOOTER}";
-            return new MotionCommandInfo {
-                CommandKey = cmdKey,
-                Payload = Encoding.ASCII.GetBytes(command),
-                TimeoutMs = 5000
-            };
-        }
-
-        public MotionCommandInfo EncodeStop()
-        {
-            string cmdKey = "STP";
-            string command = $"{HEADER}|{cmdKey}{FOOTER}";
-            return new MotionCommandInfo {
-                CommandKey = cmdKey,
-                Payload = Encoding.ASCII.GetBytes(command),
-                TimeoutMs = 2000
-            };
-        }
-
         public MotionCommandInfo EncodeStatusRequest()
         {
             string cmdKey = "GET_STS";
@@ -61,9 +39,9 @@ namespace PncNext.Infrastructure.Motion.Protocols.INTH
             string resStr = Encoding.ASCII.GetString(response);
 
             if (resStr.Contains("RUNNING")) return MotionStatus.Running;
-            if (resStr.Contains("IDLE")) return MotionStatus.Ready; // Idle -> Ready
+            if (resStr.Contains("IDLE")) return MotionStatus.Ready;
             if (resStr.Contains("ALARM")) return MotionStatus.Error;
-            if (resStr.Contains("PAUSE")) return MotionStatus.Pause; // Pause -> Pause
+            if (resStr.Contains("PAUSE")) return MotionStatus.Pause;
 
             return MotionStatus.Ready;
         }

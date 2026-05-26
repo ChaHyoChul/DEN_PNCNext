@@ -4,9 +4,9 @@ namespace PncNext.Domain.Interfaces
 {
     public interface IMotionProtocol
     {
-        // G-코드 명령 관련 (현재 정리 중이므로 MotionCommandInfo 반환으로 인터페이스 통일)
-        MotionCommandInfo EncodeMove(double x, double y, double z, double a, double b);
-        MotionCommandInfo EncodeStop();
+        // G-코드 명령 관련 (현재 정리 중)
+        // MotionCommandInfo EncodeMove(double x, double y, double z, double a, double b);
+        // MotionCommandInfo EncodeStop();
         
         /// <summary>
         /// 상태 조회를 위한 명령어 정보를 생성합니다.
