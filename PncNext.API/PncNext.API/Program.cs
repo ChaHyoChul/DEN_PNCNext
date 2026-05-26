@@ -19,6 +19,7 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 // --- Core Services (Singletons) ---
 builder.Services.AddSingleton<SharedMemoryService>();
 builder.Services.AddSingleton<IMotionStateStore, MotionStateStore>();
+builder.Services.AddSingleton<IMotionConfigStore, MotionConfigStore>();
 
 // --- Dynamic Motion Control Registration (Changed to Singleton for Hardware Persistence) ---
 builder.Services.AddSingleton<IMotionControl>(sp =>

@@ -12,30 +12,18 @@ namespace PncNext.Infrastructure.Motion.Protocols.PA
     {
         private const string TERMINATOR = "\r\n";
 
+        // 명령어 상수 정의
         public const string CMD_RND_CDT = "RND_CDT";
         public const string CMD_RND_STOP = "RND_STOP";
 
+        // 명령별 기본 타임아웃 설정 (밀리초)
         private readonly Dictionary<string, int> _commandTimeouts = new()
         {
-            { CMD_RND_CDT, 1000000 },
-            { CMD_RND_STOP, 2000 },
-            { "DEFAULT", 3000 }
+            { CMD_RND_CDT, 1000 },
+            { CMD_RND_STOP, 2000 }
         };
 
         private int GetTimeout(string command) => _commandTimeouts.TryGetValue(command, out var timeout) ? timeout : _commandTimeouts["DEFAULT"];
-
-        public MotionCommandInfo EncodeMove(double x, double y, double z, double a, double b)
-        {
-            string payload = string.Format(CultureInfo.InvariantCulture, 
-                "{0} {1:F3} {2:F3} {3:F3} {4:F3} {5:F3}{6}", 
-                CMD_MOV, x, y, z, a, b, TERMINATOR);
-
-            return new MotionCommandInfo {
-                CommandKey = CMD_MOV,
-                Payload = Encoding.ASCII.GetBytes(payload),
-                TimeoutMs = GetTimeout(CMD_MOV)
-            };
-        }
 
         public MotionCommandInfo EncodeStop()
         {
@@ -59,14 +47,13 @@ namespace PncNext.Infrastructure.Motion.Protocols.PA
         {
             if (response == null || response.Length == 0) return string.Empty;
             string resStr = Encoding.ASCII.GetString(response).Trim();
+            
             string firstWord = resStr.Split(new[] { ' ', ',' }, StringSplitOptions.RemoveEmptyEntries)[0];
 
             return firstWord switch
             {
                 CMD_RND_CDT => CMD_RND_CDT,
-                CMD_RND_STATUS => CMD_RND_STATUS,
                 CMD_RND_STOP => CMD_RND_STOP,
-                CMD_MOV => CMD_MOV,
                 _ => firstWord
             };
         }
@@ -96,7 +83,9 @@ namespace PncNext.Infrastructure.Motion.Protocols.PA
                 if (parts.Length > 1 + offset && parts[1 + offset].StartsWith("PS:"))
                 {
                     var psParts = parts[1 + offset].Split(':');
+                    // PS:File:B:L:E:R (6개) 또는 PS:L:E:R (4개) 대응
                     if (psParts.Length >= 6) int.TryParse(psParts[5], out runStatus);
+                    else if (psParts.Length >= 4) int.TryParse(psParts[3], out runStatus);
                 }
 
                 if (parts.Length > 8 + offset && parts[8 + offset].StartsWith("SV:"))
@@ -139,10 +128,8 @@ namespace PncNext.Infrastructure.Motion.Protocols.PA
             string dataPart = payload.Replace(CMD_RND_CDT, "").Trim();
             string[] parts = dataPart.Split(',');
 
-            // 정상 응답은 18개, 에러 응답은 20개 필드로 구성됨
             if (parts.Length < 18) return;
 
-            // 제어기 에러 상태 체크
             int offset = 0;
             bool isControllerError = false;
             if (parts[0].StartsWith("E", StringComparison.OrdinalIgnoreCase))
@@ -150,7 +137,6 @@ namespace PncNext.Infrastructure.Motion.Protocols.PA
                 offset = 1;
                 isControllerError = true;
                 state.LastErrorCode = parts[0];
-                // 에러 발생 시 마지막 필드가 에러 메시지
                 state.LastErrorMessage = parts[parts.Length - 1];
             }
             else
@@ -171,16 +157,17 @@ namespace PncNext.Infrastructure.Motion.Protocols.PA
 
                 // 2. Program Status (Index 1 + offset)
                 var psParts = parts[1 + offset].Split(':');
-                //if (psParts.Length >= 6)
-                if (psParts.Length == 4) 
+                if (psParts.Length >= 4) 
                 {
-                    // LineNumber
-                    if (long.TryParse(psParts[1], out long line)) state.MillingLineNumber = line;
-                    // GPL ErrorCode
-                    if (int.TryParse(psParts[2], out int err)) state.GPLErrorCode = err;
-                    // RunMode
+                    int lineIdx = psParts.Length == 4 ? 1 : 3;
+                    int errIdx = psParts.Length == 4 ? 2 : 4;
+                    int runIdx = psParts.Length == 4 ? 3 : 5;
+
+                    if (long.TryParse(psParts[lineIdx], out long line)) state.MillingLineNumber = line;
+                    if (int.TryParse(psParts[errIdx], out int err)) state.GPLErrorCode = err;
+                    
                     int run = 0;
-                    if (int.TryParse(psParts[3], out run))
+                    if (int.TryParse(psParts[runIdx], out run))
                     {
                         state.ControllerState = isControllerError ? MotionStatus.Error : MapToMotionStatus(run, state.IsHomComplete);
                     }
@@ -197,22 +184,27 @@ namespace PncNext.Infrastructure.Motion.Protocols.PA
                     }
                 }
 
-                // 4. Tool & Spindle (Index 9+offset ~ 14+offset)
+                // 4. Tool & Spindle
                 if (int.TryParse(parts[9 + offset], out int tNo)) state.CurrentToolNo = tNo;
-                if (double.TryParse(parts[10 + offset], out double tLength)) state.CurrentToolLength = tLength;
+                if (parts.Length > 10 + offset && double.TryParse(parts[10 + offset], CultureInfo.InvariantCulture, out double tLen)) state.CurrentToolLength = tLen;
                 if (int.TryParse(parts[11 + offset], out int sSpd)) state.SpindleSpeed = sSpd;
                 if (int.TryParse(parts[12 + offset], out int sOv)) state.SpindleOverride = sOv;
                 if (int.TryParse(parts[13 + offset], out int mOv)) state.MotorOverride = mOv;
                 if (int.TryParse(parts[14 + offset], out int mFd)) state.MotorFeedrate = mFd;
 
-                // 5. I/O => System + Cantops (System 15+offset, 16+offset, Cantops 17+offset, 18+offset)
-                UpdateIOArray(state.InputSystem, parts[15 + offset], 0);  // System Input 
-                UpdateIOArray(state.OutputSystem, parts[16 + offset], 0); // System Output 
-                UpdateIOArray(state.InputSystem, parts[17 + offset], 0);  // Cantops Input 
-                UpdateIOArray(state.OutputSystem, parts[18 + offset], 0); // Cantops Output 
+                // 5. I/O (System: 15, 16 / Cantops: 17, 18)
+                UpdateIOArray(state.InputSystem, parts[15 + offset], 0);
+                UpdateIOArray(state.OutputSystem, parts[16 + offset], 0);
+                if (parts.Length > 18 + offset) // Cantops 필드가 있는 경우
+                {
+                    UpdateIOArray(state.InputCantops, parts[17 + offset], 0);
+                    UpdateIOArray(state.OutputCantops, parts[18 + offset], 0);
+                }
 
-                // 6. Flags (Index 17+offset)
-                if (int.TryParse(parts[19 + offset], out int flags))
+                // 6. Flags (Index 17+offset 또는 19+offset - 필드 수에 따라 가변적일 수 있음)
+                // 제공된 예시 및 이전 로직을 기반으로 마지막 전 필드 혹은 17/19번 확인
+                int flagsIdx = parts.Length > 20 ? 19 + offset : 17 + offset;
+                if (int.TryParse(parts[flagsIdx], out int flags))
                 {
                     state.IoBoardState = (flags & 0x0001) != 0 ? 1 : 0;
                     state.SpindleBoardState = (flags & 0x0002) != 0 ? 1 : 0;
@@ -236,7 +228,7 @@ namespace PncNext.Infrastructure.Motion.Protocols.PA
 
         private void UpdateIOArray(bool[] target, string hexValue, int offset)
         {
-            if (string.IsNullOrEmpty(hexValue)) return;
+            if (string.IsNullOrEmpty(hexValue) || target == null) return;
             try
             {
                 long val = Convert.ToInt64(hexValue, 16);
