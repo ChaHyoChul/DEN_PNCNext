@@ -39,8 +39,8 @@ namespace PncNext.Infrastructure.Motion.Channels
                 await CloseAsync();
             }
 
-            IsFaulted = false; 
-            
+            IsFaulted = false;
+
             await _port.OpenAsync();
             StartReceiveLoop();
         }
@@ -67,7 +67,7 @@ namespace PncNext.Infrastructure.Motion.Channels
             _loopCts?.Cancel();
             _loopCts?.Dispose();
             _loopCts = null;
-            
+
             foreach (var tcs in _pendingRequests.Values)
             {
                 tcs.TrySetCanceled();
@@ -106,13 +106,27 @@ namespace PncNext.Infrastructure.Motion.Channels
         private void SetFault()
         {
             IsFaulted = true;
-            _ = CloseAsync(); 
+            _ = CloseAsync();
         }
 
         public async Task StopAsync(int mode)
         {
             CheckState();
-            var cmdInfo = _protocol.EncodeStop(mode);
+            var cmdInfoStop = _protocol.EncodeStop(mode);
+            await SendAndReceiveAsync(cmdInfoStop);
+            var cmdInfoHalt = _protocol.EncodeHalt();
+            await SendAndReceiveAsync(cmdInfoHalt);
+        }
+
+        public async Task ErrorResetAsync()
+        {
+            var cmdInfo = _protocol.EncodeErrorReset();
+            await SendAndReceiveAsync(cmdInfo);
+        }
+
+        public async Task InitControllerAsync()
+        {
+            var cmdInfo = _protocol.EncodeInitController();
             await SendAndReceiveAsync(cmdInfo);
         }
 
@@ -127,7 +141,7 @@ namespace PncNext.Infrastructure.Motion.Channels
         public async Task<MotionStatus> GetStatusAsync()
         {
             var response = await ReadFullStatusAsync();
-            return MotionStatus.Ready; 
+            return MotionStatus.Ready;
         }
 
         public async Task<byte[]> ReadFullStatusAsync()

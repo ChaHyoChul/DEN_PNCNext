@@ -31,6 +31,16 @@ namespace PncNext.Domain.Interfaces
         Task StopAsync(int mode);
 
         /// <summary>
+        /// 에러 리셋 명령을 전송합니다 
+        /// </summary>
+        Task ErrorResetAsync();
+
+        /// <summary>
+        /// 모션 컨트롤러를 초기화 합니다 
+        /// </summary>
+        Task InitControllerAsync();
+
+        /// <summary>
         /// 장비 원점 복귀 명령을 전송합니다.
         /// </summary>
         Task HomeAsync();

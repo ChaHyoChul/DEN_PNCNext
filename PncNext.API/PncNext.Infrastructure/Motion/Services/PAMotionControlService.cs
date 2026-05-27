@@ -60,6 +60,16 @@ namespace PncNext.Infrastructure.Motion.Services
             await GetChannel("CMD").StopAsync(mode);
         }
 
+        public async Task ErrorResetAsync()
+        {
+            await GetChannel("CMD").ErrorResetAsync();
+        }
+
+        public async Task InitControllerAsync()
+        {
+            await GetChannel("CMD").InitControllerAsync();
+        }
+
         public async Task HomeAsync()
         {
             // 원점 복귀 명령은 CMD 채널 사용
@@ -104,5 +114,7 @@ namespace PncNext.Infrastructure.Motion.Services
                 channel.MessageReceived -= OnMessageReceived;
             }
         }
+
+
     }
 }

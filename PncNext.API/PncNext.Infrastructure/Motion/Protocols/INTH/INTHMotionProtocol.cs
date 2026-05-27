@@ -23,6 +23,39 @@ namespace PncNext.Infrastructure.Motion.Protocols.INTH
             };
         }
 
+        public MotionCommandInfo EncodeHalt()
+        {
+            string cmdKey = "HALT";
+            string command = $"{HEADER}|{cmdKey}{FOOTER}";
+            return new MotionCommandInfo {
+                CommandKey = cmdKey,
+                Payload = Encoding.ASCII.GetBytes(command),
+                TimeoutMs = 2000
+            };
+        }
+
+        public MotionCommandInfo EncodeErrorReset()
+        {
+            string cmdKey = "RST";
+            string command = $"{HEADER}|{cmdKey}{FOOTER}";
+            return new MotionCommandInfo {
+                CommandKey = cmdKey,
+                Payload = Encoding.ASCII.GetBytes(command),
+                TimeoutMs = 2000
+            };
+        }
+
+        public MotionCommandInfo EncodeInitController()
+        {
+            string cmdKey = "INIT";
+            string command = $"{HEADER}|{cmdKey}{FOOTER}";
+            return new MotionCommandInfo {
+                CommandKey = cmdKey,
+                Payload = Encoding.ASCII.GetBytes(command),
+                TimeoutMs = 5000
+            };
+        }
+
         public MotionCommandInfo EncodeHome()
         {
             string cmdKey = "HOME";

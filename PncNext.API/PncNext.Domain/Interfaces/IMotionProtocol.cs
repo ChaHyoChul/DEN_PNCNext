@@ -9,6 +9,11 @@ namespace PncNext.Domain.Interfaces
         /// </summary>
         MotionCommandInfo EncodeStop(int mode);
 
+        MotionCommandInfo EncodeHalt();
+
+        MotionCommandInfo EncodeErrorReset();
+
+        MotionCommandInfo EncodeInitController();
         /// <summary>
         /// 장비 원점 복귀 명령어를 생성합니다.
         /// </summary>

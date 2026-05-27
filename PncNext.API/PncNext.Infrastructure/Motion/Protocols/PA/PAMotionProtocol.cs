@@ -15,13 +15,19 @@ namespace PncNext.Infrastructure.Motion.Protocols.PA
         // 명령어 상수 정의
         public const string CMD_RND_CDT = "RND_CDT";
         public const string CMD_RND_STOP = "RND_STOP";
+        public const string CMD_RND_HALT = "RND_HALT";
+        public const string CMD_RND_RST = "RND_RST";
+        public const string CMD_RND_INIT = "RND_INIT";
         public const string CMD_RND_HOME = "RND_HOME";
 
         // 명령별 기본 타임아웃 설정 (밀리초)
         private readonly Dictionary<string, int> _commandTimeouts = new()
         {
-            { CMD_RND_CDT, 1000 },
+            { CMD_RND_CDT, 2000 },
             { CMD_RND_STOP, 2000 },
+            { CMD_RND_HALT, 2000 },
+            { CMD_RND_RST, 2000 },
+            { CMD_RND_INIT, 2000 }, 
             { CMD_RND_HOME, 300000 } // 5분 (원점 복귀 장시간 소요 대비)
         };
 
@@ -34,6 +40,38 @@ namespace PncNext.Infrastructure.Motion.Protocols.PA
                 CommandKey = CMD_RND_STOP,
                 Payload = Encoding.ASCII.GetBytes(payload),
                 TimeoutMs = GetTimeout(CMD_RND_STOP)
+            };
+        }
+
+        public MotionCommandInfo EncodeHalt()
+        {
+            string payload = string.Format(CultureInfo.InvariantCulture, "{0}{1}", CMD_RND_HALT, TERMINATOR);
+            return new MotionCommandInfo {
+                CommandKey = CMD_RND_HALT,
+                Payload = Encoding.ASCII.GetBytes(payload),
+                TimeoutMs = GetTimeout(CMD_RND_HALT)
+            };
+        }
+
+        public MotionCommandInfo EncodeErrorReset()
+        {
+            string payload = string.Format(CultureInfo.InvariantCulture, "{0}{1}", CMD_RND_RST, TERMINATOR);
+            return new MotionCommandInfo
+            {
+                CommandKey = CMD_RND_RST,
+                Payload = Encoding.ASCII.GetBytes(payload),
+                TimeoutMs = GetTimeout(CMD_RND_RST)
+            };
+        }
+
+        public MotionCommandInfo EncodeInitController()
+        {
+            string payload = string.Format(CultureInfo.InvariantCulture, "{0}{1}", CMD_RND_INIT, TERMINATOR);
+            return new MotionCommandInfo
+            {
+                CommandKey = CMD_RND_INIT,
+                Payload = Encoding.ASCII.GetBytes(payload),
+                TimeoutMs = GetTimeout(CMD_RND_INIT)
             };
         }
 

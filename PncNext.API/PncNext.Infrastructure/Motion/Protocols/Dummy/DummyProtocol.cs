@@ -16,6 +16,36 @@ namespace PncNext.Infrastructure.Motion.Protocols.Dummy
             };
         }
 
+        public MotionCommandInfo EncodeHalt()
+        {
+            string cmdKey = "HALT";
+            return new MotionCommandInfo {
+                CommandKey = cmdKey,
+                Payload = Encoding.ASCII.GetBytes(cmdKey),
+                TimeoutMs = 1000
+            };
+        }
+
+        public MotionCommandInfo EncodeErrorReset()
+        {
+            string cmdKey = "RESET";
+            return new MotionCommandInfo {
+                CommandKey = cmdKey,
+                Payload = Encoding.ASCII.GetBytes(cmdKey),
+                TimeoutMs = 1000
+            };
+        }
+
+        public MotionCommandInfo EncodeInitController()
+        {
+            string cmdKey = "INIT";
+            return new MotionCommandInfo {
+                CommandKey = cmdKey,
+                Payload = Encoding.ASCII.GetBytes(cmdKey),
+                TimeoutMs = 1000
+            };
+        }
+
         public MotionCommandInfo EncodeHome()
         {
             string cmdKey = "HOME";
