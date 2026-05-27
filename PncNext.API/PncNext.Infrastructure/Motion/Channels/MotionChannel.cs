@@ -140,6 +140,48 @@ namespace PncNext.Infrastructure.Motion.Channels
             await SendAndReceiveAsync(cmdInfoHome);
         }
 
+        public async Task SetModeAsync(string mode)
+        {
+            CheckState();
+            var cmdInfo = _protocol.EncodeMode(mode);
+            await SendAndReceiveAsync(cmdInfo);
+        }
+
+        public async Task PauseAsync()
+        {
+            CheckState();
+            var cmdInfo = _protocol.EncodePause();
+            await SendAndReceiveAsync(cmdInfo);
+        }
+
+        public async Task ContinueAsync()
+        {
+            CheckState();
+            var cmdInfo = _protocol.EncodeContinue();
+            await SendAndReceiveAsync(cmdInfo);
+        }
+
+        public async Task MdaAsync(string gcode)
+        {
+            CheckState();
+            var cmdInfo = _protocol.EncodeMda(gcode);
+            await SendAndReceiveAsync(cmdInfo);
+        }
+
+        public async Task MoveIncrementalAsync(double? x, double? y, double? z, double? a, double? b)
+        {
+            CheckState();
+            var cmdInfo = _protocol.EncodeMoveIncremental(x, y, z, a, b);
+            await SendAndReceiveAsync(cmdInfo);
+        }
+
+        public async Task MoveAbsoluteAsync(double? x, double? y, double? z, double? a, double? b)
+        {
+            CheckState();
+            var cmdInfo = _protocol.EncodeMoveAbsolute(x, y, z, a, b);
+            await SendAndReceiveAsync(cmdInfo);
+        }
+
         public async Task<MotionStatus> GetStatusAsync()
         {
             var response = await ReadFullStatusAsync();

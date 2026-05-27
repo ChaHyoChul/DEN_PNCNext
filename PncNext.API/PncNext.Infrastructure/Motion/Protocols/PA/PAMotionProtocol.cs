@@ -20,16 +20,28 @@ namespace PncNext.Infrastructure.Motion.Protocols.PA
         public const string CMD_RND_RST = "RND_RST";
         public const string CMD_RND_INIT = "RND_INIT";
         public const string CMD_RND_HOME = "RND_HOME";
+        public const string CMD_RND_MODE = "RND_MODE";
+        public const string CMD_RND_PAUSE = "RND_PAUSE";
+        public const string CMD_RND_CONTINUE = "RND_CONTINUE";
+        public const string CMD_RND_MMI = "RND_MMI";
+        public const string CMD_RND_MMA = "RND_MMA";
+        public const string CMD_RND_MDA = "RND_MDA";
 
         // 명령별 기본 타임아웃 설정 (밀리초)
         private readonly Dictionary<string, int> _commandTimeouts = new()
         {
             { CMD_RND_CDT, 2000 },
-            { CMD_RND_STOP, 5000 },
-            { CMD_RND_HALT, 5000 },
-            { CMD_RND_RST, 5000 },
-            { CMD_RND_INIT, 5000 }, 
-            { CMD_RND_HOME, 600000 } // 10분 (원점 복귀 장시간 소요 대비)
+            { CMD_RND_STOP, 3000 },
+            { CMD_RND_HALT, 3000 },
+            { CMD_RND_RST, 3000 },
+            { CMD_RND_INIT, 3000 }, 
+            { CMD_RND_HOME, 600000 }, // 10분 (원점 복귀 장시간 소요 대비)
+            { CMD_RND_MODE, 3000 },
+            { CMD_RND_PAUSE, 3000 },
+            { CMD_RND_CONTINUE, 3000 },
+            { CMD_RND_MMI, 10000 },    // 이동 명령은 기본 10초
+            { CMD_RND_MMA, 10000 },
+            { CMD_RND_MDA, 10000 }
         };
 
         private int GetTimeout(string command) => _commandTimeouts.TryGetValue(command, out var timeout) ? timeout : 3000;
@@ -86,6 +98,75 @@ namespace PncNext.Infrastructure.Motion.Protocols.PA
             };
         }
 
+        public MotionCommandInfo EncodeMode(string mode)
+        {
+            // 규격: RND_MODE [mode]\r\n
+            string payload = string.Format(CultureInfo.InvariantCulture, "{0} {1}{2}", CMD_RND_MODE, mode, TERMINATOR);
+            return new MotionCommandInfo {
+                CommandKey = CMD_RND_MODE,
+                Payload = Encoding.ASCII.GetBytes(payload),
+                TimeoutMs = GetTimeout(CMD_RND_MODE)
+            };
+        }
+
+        public MotionCommandInfo EncodePause()
+        {
+            return new MotionCommandInfo {
+                CommandKey = CMD_RND_PAUSE,
+                Payload = Encoding.ASCII.GetBytes($"{CMD_RND_PAUSE}{TERMINATOR}"),
+                TimeoutMs = GetTimeout(CMD_RND_PAUSE)
+            };
+        }
+
+        public MotionCommandInfo EncodeContinue()
+        {
+            return new MotionCommandInfo {
+                CommandKey = CMD_RND_CONTINUE,
+                Payload = Encoding.ASCII.GetBytes($"{CMD_RND_CONTINUE}{TERMINATOR}"),
+                TimeoutMs = GetTimeout(CMD_RND_CONTINUE)
+            };
+        }
+
+        public MotionCommandInfo EncodeMda(string gcode)
+        {
+            // 규격: RND_MDA [gcode]\r\n
+            string payload = string.Format(CultureInfo.InvariantCulture, "{0} {1}{2}", CMD_RND_MDA, gcode, TERMINATOR);
+            return new MotionCommandInfo {
+                CommandKey = CMD_RND_MDA,
+                Payload = Encoding.ASCII.GetBytes(payload),
+                TimeoutMs = GetTimeout(CMD_RND_MDA)
+            };
+        }
+
+        public MotionCommandInfo EncodeMoveIncremental(double? x, double? y, double? z, double? a, double? b)
+        {
+            return BuildMoveCommand(CMD_RND_MMI, x, y, z, a, b);
+        }
+
+        public MotionCommandInfo EncodeMoveAbsolute(double? x, double? y, double? z, double? a, double? b)
+        {
+            return BuildMoveCommand(CMD_RND_MMA, x, y, z, a, b);
+        }
+
+        private MotionCommandInfo BuildMoveCommand(string cmdKey, double? x, double? y, double? z, double? a, double? b)
+        {
+            var sb = new StringBuilder(cmdKey);
+            
+            if (x.HasValue) sb.AppendFormat(CultureInfo.InvariantCulture, " {0:F3},", x.Value);
+            if (y.HasValue) sb.AppendFormat(CultureInfo.InvariantCulture, "{0:F3},", y.Value);
+            if (z.HasValue) sb.AppendFormat(CultureInfo.InvariantCulture, "{0:F3},", z.Value);
+            if (a.HasValue) sb.AppendFormat(CultureInfo.InvariantCulture, "{0:F3},", a.Value);
+            if (b.HasValue) sb.AppendFormat(CultureInfo.InvariantCulture, "{0:F3}", b.Value);
+            
+            sb.Append(TERMINATOR);
+
+            return new MotionCommandInfo {
+                CommandKey = cmdKey,
+                Payload = Encoding.ASCII.GetBytes(sb.ToString()),
+                TimeoutMs = GetTimeout(cmdKey)
+            };
+        }
+
         public MotionCommandInfo EncodeStatusRequest()
         {
             return new MotionCommandInfo {
@@ -107,8 +188,55 @@ namespace PncNext.Infrastructure.Motion.Protocols.PA
                 CMD_RND_CDT => CMD_RND_CDT,
                 CMD_RND_STOP => CMD_RND_STOP,
                 CMD_RND_HOME => CMD_RND_HOME,
+                CMD_RND_MODE => CMD_RND_MODE,
+                CMD_RND_PAUSE => CMD_RND_PAUSE,
+                CMD_RND_CONTINUE => CMD_RND_CONTINUE,
+                CMD_RND_MMI => CMD_RND_MMI,
+                CMD_RND_MMA => CMD_RND_MMA,
+                CMD_RND_MDA => CMD_RND_MDA,
                 _ => firstWord
             };
+        }
+
+        public MotionStatus DecodeStatus(byte[] response)
+        {
+            if (response == null || response.Length == 0)
+                return MotionStatus.NotConnected;
+
+            string resStr = Encoding.ASCII.GetString(response).Trim();
+            bool isHomeComplete = true; 
+            int runStatus = 0;
+            bool isControllerError = false;
+
+            if (resStr.StartsWith(CMD_RND_CDT))
+            {
+                var dataPart = resStr.Replace(CMD_RND_CDT, "").Trim();
+                var parts = dataPart.Split(',');
+                
+                int offset = 0;
+                if (parts.Length > 0 && parts[0].StartsWith("E", StringComparison.OrdinalIgnoreCase))
+                {
+                    offset = 1;
+                    isControllerError = true;
+                }
+
+                if (parts.Length > 1 + offset && parts[1 + offset].StartsWith("PS:"))
+                {
+                    var psParts = parts[1 + offset].Split(':');
+                    if (psParts.Length >= 6) int.TryParse(psParts[5], out runStatus);
+                    else if (psParts.Length >= 4) int.TryParse(psParts[3], out runStatus);
+                }
+
+                if (parts.Length > 8 + offset && parts[8 + offset].StartsWith("SV:"))
+                {
+                    var svParts = parts[8 + offset].Split(':');
+                    if (svParts.Length >= 3) isHomeComplete = svParts[2] == "1";
+                }
+                
+                return isControllerError ? MotionStatus.Error : MapToMotionStatus(runStatus, isHomeComplete);
+            }
+
+            return MotionStatus.NotConnected;
         }
 
         public MotionCommandInfo EncodeCustom(string command, params object[] args)
@@ -259,8 +387,5 @@ namespace PncNext.Infrastructure.Motion.Protocols.PA
                 _ => MotionStatus.Ready
             };
         }
-
-        // 미사용 인터페이스 메서드 Stub
-        public MotionCommandInfo EncodeMove(double x, double y, double z, double a, double b) => throw new NotImplementedException();
     }
 }

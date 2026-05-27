@@ -58,20 +58,60 @@ namespace PncNext.API.Controllers
         }
 
         /// <summary>
-        /// 장비에 이동 명령을 내립니다.
+        /// 입력된 축만 선택적으로 상대 위치 이동을 수행합니다.
         /// </summary>
-        [HttpPost("move")]
-        public async Task<IActionResult> Move([FromBody] MoveRequest request)
+        [HttpPost("move-incremental")]
+        public async Task<IActionResult> MoveIncremental([FromBody] OptionalMoveRequest request)
         {
+            if (request == null) return BadRequest("요청 데이터가 비어있습니다.");
             try
             {
-                await _motionControl.MoveAsync(request.X, request.Y, request.Z, request.A, request.B);
-                return Ok(new { message = "이동 명령이 전송되었습니다." });
+                await _motionControl.MoveIncrementalAsync(request.X, request.Y, request.Z, request.A, request.B);
+                return Ok(new { message = "상대 이동 명령이 전송되었습니다." });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "이동 명령 전송 중 오류 발생");
-                return StatusCode(500, "이동 명령 전송에 실패했습니다.");
+                _logger.LogError(ex, "상대 이동 명령 전송 중 오류 발생");
+                return StatusCode(500, "상대 이동 명령 전송에 실패했습니다.");
+            }
+        }
+
+        /// <summary>
+        /// 입력된 축만 선택적으로 절대 위치 이동을 수행합니다.
+        /// </summary>
+        [HttpPost("move-absolute")]
+        public async Task<IActionResult> MoveAbsolute([FromBody] OptionalMoveRequest request)
+        {
+            if (request == null) return BadRequest("요청 데이터가 비어있습니다.");
+            try
+            {
+                await _motionControl.MoveAbsoluteAsync(request.X, request.Y, request.Z, request.A, request.B);
+                return Ok(new { message = "절대 이동 명령이 전송되었습니다." });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "절대 이동 명령 전송 중 오류 발생");
+                return StatusCode(500, "절대 이동 명령 전송에 실패했습니다.");
+            }
+        }
+
+        /// <summary>
+        /// G-Code 명령(MDA)을 실행합니다.
+        /// </summary>
+        /// <param name="gcode">실행할 G-Code 문자열</param>
+        [HttpPost("mda")]
+        public async Task<IActionResult> Mda([FromQuery] string gcode)
+        {
+            if (string.IsNullOrWhiteSpace(gcode)) return BadRequest("G-Code가 비어있습니다.");
+            try
+            {
+                await _motionControl.MdaAsync(gcode);
+                return Ok(new { message = $"MDA 명령({gcode})이 전송되었습니다." });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "MDA 명령 전송 중 오류 발생");
+                return StatusCode(500, "MDA 명령 전송에 실패했습니다.");
             }
         }
 
@@ -93,18 +133,58 @@ namespace PncNext.API.Controllers
             }
         }
 
-        [HttpPost("error-reset")]
-        public async Task<IActionResult> ErrorReset()
+        /// <summary>
+        /// 장비의 동작 모드를 설정합니다.
+        /// </summary>
+        /// <param name="mode">"OFF", "AUTO", "STEP", "MDA"</param>
+        [HttpPost("mode")]
+        public async Task<IActionResult> SetMode([FromQuery] string mode)
         {
             try
             {
-                await _motionControl.ErrorResetAsync();
-                return Ok(new { message = "에러 리셋 명령이 전송되었습니다." });
+                await _motionControl.SetModeAsync(mode);
+                return Ok(new { message = $"동작 모드가 {mode}로 설정되었습니다." });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "에러 리셋 명령 전송 중 오류 발생");
-                return StatusCode(500, "에러 리셋 명령 전송에 실패했습니다.");
+                _logger.LogError(ex, "모드 전환 명령 전송 중 오류 발생");
+                return StatusCode(500, "모드 전환 명령 전송에 실패했습니다.");
+            }
+        }
+
+        /// <summary>
+        /// 장비를 일시 정지시킵니다.
+        /// </summary>
+        [HttpPost("pause")]
+        public async Task<IActionResult> Pause()
+        {
+            try
+            {
+                await _motionControl.PauseAsync();
+                return Ok(new { message = "일시 정지 명령이 전송되었습니다." });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "일시 정지 명령 전송 중 오류 발생");
+                return StatusCode(500, "일시 정지 명령 전송에 실패했습니다.");
+            }
+        }
+
+        /// <summary>
+        /// 일시 정지된 장비를 재개시킵니다.
+        /// </summary>
+        [HttpPost("continue")]
+        public async Task<IActionResult> Continue()
+        {
+            try
+            {
+                await _motionControl.ContinueAsync();
+                return Ok(new { message = "재개 명령이 전송되었습니다." });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "재개 명령 전송 중 오류 발생");
+                return StatusCode(500, "재개 명령 전송에 실패했습니다.");
             }
         }
 
@@ -128,12 +208,12 @@ namespace PncNext.API.Controllers
         }
     }
 
-    public class MoveRequest
+    public class OptionalMoveRequest
     {
-        public double X { get; set; }
-        public double Y { get; set; }
-        public double Z { get; set; }
-        public double A { get; set; }
-        public double B { get; set; }
+        public double? X { get; set; }
+        public double? Y { get; set; }
+        public double? Z { get; set; }
+        public double? A { get; set; }
+        public double? B { get; set; }
     }
 }

@@ -45,6 +45,30 @@ namespace PncNext.Domain.Interfaces
         /// </summary>
         Task HomeAsync();
 
+        /// <summary>
+        /// 장비의 동작 모드 전환 명령을 전송합니다.
+        /// </summary>
+        Task SetModeAsync(string mode);
+
+        Task PauseAsync();
+
+        Task ContinueAsync();
+
+        /// <summary>
+        /// G-Code 명령(MDA) 전송을 수행합니다.
+        /// </summary>
+        Task MdaAsync(string gcode);
+
+        /// <summary>
+        /// 입력된 축만 상대 위치로 이동시키는 명령을 전송합니다.
+        /// </summary>
+        Task MoveIncrementalAsync(double? x, double? y, double? z, double? a, double? b);
+
+        /// <summary>
+        /// 입력된 축만 절대 위치로 이동시키는 명령을 전송합니다.
+        /// </summary>
+        Task MoveAbsoluteAsync(double? x, double? y, double? z, double? a, double? b);
+
         Task<MotionStatus> GetStatusAsync();
 
         /// <summary>

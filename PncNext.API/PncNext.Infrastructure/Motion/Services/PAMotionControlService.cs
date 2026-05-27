@@ -50,11 +50,6 @@ namespace PncNext.Infrastructure.Motion.Services
             return _channels.Values.First();
         }
 
-        public async Task MoveAsync(double x, double y, double z, double a, double b)
-        {
-            throw new NotImplementedException("Move feature is currently being reorganized.");
-        }
-
         public async Task StopAsync(int mode)
         {
             await GetChannel("STS").StopAsync(mode);
@@ -74,6 +69,49 @@ namespace PncNext.Infrastructure.Motion.Services
         {
             // 원점 복귀 명령은 CMD 채널 사용
             await GetChannel("CMD").HomeAsync();
+        }
+
+        public async Task SetModeAsync(string mode)
+        {
+            await GetChannel("CMD").SetModeAsync(mode);
+        }
+
+        public async Task PauseAsync()
+        {
+            await GetChannel("CMD").PauseAsync();
+        }
+
+        public async Task ContinueAsync()
+        {
+            await GetChannel("CMD").ContinueAsync();
+        }
+
+        public async Task MdaAsync(string gcode)
+        {
+            await GetChannel("CMD").MdaAsync(gcode);
+        }
+
+        public async Task MoveIncrementalAsync(double? x, double? y, double? z, double? a, double? b)
+        {
+            // MMI: 입력되지 않은 축은 0으로 설정하여 이동하지 않도록 함
+            x ??= 0;
+            y ??= 0;
+            z ??= 0;
+            a ??= 0;
+            b ??= 0;
+            await GetChannel("CMD").MoveIncrementalAsync(x, y, z, a, b);
+        }
+
+        public async Task MoveAbsoluteAsync(double? x, double? y, double? z, double? a, double? b)
+        {
+            // MMA: 입력되지 않은 축은 현재 위치를 입력하여 해당 축이 이동하지 않도록 함
+            var currentPos = _stateStore.PaState.Position;
+            x ??= currentPos[0];
+            y ??= currentPos[1];
+            z ??= currentPos[2];
+            a ??= currentPos[3];
+            b ??= currentPos[4];
+            await GetChannel("CMD").MoveAbsoluteAsync(x, y, z, a, b);
         }
 
         public async Task<MotionStatus> GetStatusAsync()

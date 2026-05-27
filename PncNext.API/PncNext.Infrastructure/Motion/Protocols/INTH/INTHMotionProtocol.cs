@@ -67,6 +67,72 @@ namespace PncNext.Infrastructure.Motion.Protocols.INTH
             };
         }
 
+        public MotionCommandInfo EncodeMode(string mode)
+        {
+            string cmdKey = "MODE";
+            string command = $"{HEADER}|{cmdKey}|{mode}{FOOTER}";
+            return new MotionCommandInfo {
+                CommandKey = cmdKey,
+                Payload = Encoding.ASCII.GetBytes(command),
+                TimeoutMs = 2000
+            };
+        }
+
+        public MotionCommandInfo EncodePause()
+        {
+            string cmdKey = "PAUSE";
+            string command = $"{HEADER}|{cmdKey}{FOOTER}";
+            return new MotionCommandInfo {
+                CommandKey = cmdKey,
+                Payload = Encoding.ASCII.GetBytes(command),
+                TimeoutMs = 2000
+            };
+        }
+
+        public MotionCommandInfo EncodeContinue()
+        {
+            string cmdKey = "CONT";
+            string command = $"{HEADER}|{cmdKey}{FOOTER}";
+            return new MotionCommandInfo {
+                CommandKey = cmdKey,
+                Payload = Encoding.ASCII.GetBytes(command),
+                TimeoutMs = 2000
+            };
+        }
+
+        public MotionCommandInfo EncodeMda(string gcode)
+        {
+            string cmdKey = "MDA";
+            string command = $"{HEADER}|{cmdKey}|{gcode}{FOOTER}";
+            return new MotionCommandInfo {
+                CommandKey = cmdKey,
+                Payload = Encoding.ASCII.GetBytes(command),
+                TimeoutMs = 5000
+            };
+        }
+
+        public MotionCommandInfo EncodeMoveIncremental(double? x, double? y, double? z, double? a, double? b)
+        {
+            string cmdKey = "MMI";
+            string command = $"{HEADER}|{cmdKey}|{x ?? 0}|{y ?? 0}|{z ?? 0}|{a ?? 0}|{b ?? 0}{FOOTER}";
+            return new MotionCommandInfo {
+                CommandKey = cmdKey,
+                Payload = Encoding.ASCII.GetBytes(command),
+                TimeoutMs = 10000
+            };
+        }
+
+        public MotionCommandInfo EncodeMoveAbsolute(double? x, double? y, double? z, double? a, double? b)
+        {
+            string cmdKey = "MMA";
+            string command = $"{HEADER}|{cmdKey}|{x ?? 0}|{y ?? 0}|{z ?? 0}|{a ?? 0}|{b ?? 0}{FOOTER}";
+            return new MotionCommandInfo {
+                CommandKey = cmdKey,
+                Payload = Encoding.ASCII.GetBytes(command),
+                TimeoutMs = 10000
+            };
+        }
+
         public MotionCommandInfo EncodeStatusRequest()
         {
             string cmdKey = "GET_STS";

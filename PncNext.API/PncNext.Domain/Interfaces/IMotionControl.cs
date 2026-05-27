@@ -25,7 +25,15 @@ namespace PncNext.Domain.Interfaces
         /// </summary>
         Task CloseAsync();
 
-        Task MoveAsync(double x, double y, double z, double a, double b);
+        /// <summary>
+        /// 입력된 축만 상대 위치로 이동시킵니다.
+        /// </summary>
+        Task MoveIncrementalAsync(double? x, double? y, double? z, double? a, double? b);
+
+        /// <summary>
+        /// 입력된 축만 절대 위치로 이동시킵니다.
+        /// </summary>
+        Task MoveAbsoluteAsync(double? x, double? y, double? z, double? a, double? b);
         
         /// <summary>
         /// 장비를 정지시킵니다.
@@ -49,6 +57,21 @@ namespace PncNext.Domain.Interfaces
         /// </summary>
         Task HomeAsync();
         
+        /// <summary>
+        /// 장비의 동작 모드를 설정합니다.
+        /// </summary>
+        /// <param name="mode">"OFF", "AUTO", "STEP", "MDA"</param>
+        Task SetModeAsync(string mode);
+
+        Task PauseAsync();
+
+        Task ContinueAsync();
+
+        /// <summary>
+        /// G-Code 명령(MDA)을 실행합니다.
+        /// </summary>
+        Task MdaAsync(string gcode);
+
         /// <summary>
         /// 현재 장비의 통합 상태를 조회합니다.
         /// </summary>
