@@ -94,7 +94,7 @@ namespace PncNext.Infrastructure.Motion.Channels
                     }
                 }
             }
-            catch (Exception)
+            catch (Exception ex)
             {
                 if (!ct.IsCancellationRequested)
                 {
@@ -133,9 +133,11 @@ namespace PncNext.Infrastructure.Motion.Channels
         public async Task HomeAsync()
         {
             CheckState();
-            var cmdInfo = _protocol.EncodeHome();
+            var cmdInfoInit = _protocol.EncodeInitController();
+            await SendAndReceiveAsync(cmdInfoInit);
+            var cmdInfoHome = _protocol.EncodeHome();
             // 원점 복귀는 장시간 대기하므로 프로토콜에서 정의된 긴 타임아웃이 적용됨
-            await SendAndReceiveAsync(cmdInfo);
+            await SendAndReceiveAsync(cmdInfoHome);
         }
 
         public async Task<MotionStatus> GetStatusAsync()

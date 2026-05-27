@@ -93,6 +93,21 @@ namespace PncNext.API.Controllers
             }
         }
 
+        [HttpPost("error-reset")]
+        public async Task<IActionResult> ErrorReset()
+        {
+            try
+            {
+                await _motionControl.ErrorResetAsync();
+                return Ok(new { message = "에러 리셋 명령이 전송되었습니다." });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "에러 리셋 명령 전송 중 오류 발생");
+                return StatusCode(500, "에러 리셋 명령 전송에 실패했습니다.");
+            }
+        }
+
         /// <summary>
         /// 장비를 즉시 정지시킵니다.
         /// </summary>

@@ -2,6 +2,7 @@ using PncNext.Domain.Interfaces;
 using PncNext.Domain.Models;
 using System.Text;
 using System.Globalization;
+using Microsoft.EntityFrameworkCore.Metadata.Conventions;
 
 namespace PncNext.Infrastructure.Motion.Protocols.PA
 {
@@ -24,11 +25,11 @@ namespace PncNext.Infrastructure.Motion.Protocols.PA
         private readonly Dictionary<string, int> _commandTimeouts = new()
         {
             { CMD_RND_CDT, 2000 },
-            { CMD_RND_STOP, 2000 },
-            { CMD_RND_HALT, 2000 },
-            { CMD_RND_RST, 2000 },
-            { CMD_RND_INIT, 2000 }, 
-            { CMD_RND_HOME, 300000 } // 5분 (원점 복귀 장시간 소요 대비)
+            { CMD_RND_STOP, 5000 },
+            { CMD_RND_HALT, 5000 },
+            { CMD_RND_RST, 5000 },
+            { CMD_RND_INIT, 5000 }, 
+            { CMD_RND_HOME, 600000 } // 10분 (원점 복귀 장시간 소요 대비)
         };
 
         private int GetTimeout(string command) => _commandTimeouts.TryGetValue(command, out var timeout) ? timeout : 3000;
@@ -246,6 +247,7 @@ namespace PncNext.Infrastructure.Motion.Protocols.PA
 
         private MotionStatus MapToMotionStatus(int runStatus, bool isHomeComplete)
         {
+            if (runStatus == 1) return MotionStatus.Running;
             if (!isHomeComplete) return MotionStatus.NotReady;
 
             return runStatus switch
