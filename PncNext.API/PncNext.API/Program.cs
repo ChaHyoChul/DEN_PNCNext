@@ -39,12 +39,12 @@ builder.Services.AddSingleton<IMotionControl>(sp =>
         if (config == null || !config.CommItems.Any())
         {
             var fallbackChannels = new Dictionary<string, IMotionChannel> {
-                { "STS", new MotionChannel(new TcpCommPort("127.0.0.1", 10000), new PAMotionProtocol()) },
-                { "CMD", new MotionChannel(new TcpCommPort("127.0.0.1", 10100), new PAMotionProtocol()) },
-                { "ATL", new MotionChannel(new TcpCommPort("127.0.0.1", 10200), new PAMotionProtocol()) }
-                //{ "STS", new MotionChannel(new TcpCommPort("192.6.94.1", 10000), new PAMotionProtocol()) },
-                //{ "CMD", new MotionChannel(new TcpCommPort("192.6.94.1", 10100), new PAMotionProtocol()) },
-                //{ "ATL", new MotionChannel(new TcpCommPort("192.6.94.1", 10200), new PAMotionProtocol()) }
+                //{ "STS", new MotionChannel(new TcpCommPort("127.0.0.1", 10000), new PAMotionProtocol()) },
+                //{ "CMD", new MotionChannel(new TcpCommPort("127.0.0.1", 10100), new PAMotionProtocol()) },
+                //{ "ATL", new MotionChannel(new TcpCommPort("127.0.0.1", 10200), new PAMotionProtocol()) }
+                { "STS", new MotionChannel(new TcpCommPort("192.6.94.1", 10000), new PAMotionProtocol()) },
+                { "CMD", new MotionChannel(new TcpCommPort("192.6.94.1", 10100), new PAMotionProtocol()) },
+                { "ATL", new MotionChannel(new TcpCommPort("192.6.94.1", 10200), new PAMotionProtocol()) }
             };
             return new PAMotionControlService(fallbackChannels, stateStore);
         }

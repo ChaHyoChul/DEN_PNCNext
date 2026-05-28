@@ -50,7 +50,7 @@ namespace PncNext.API.Services
                     {
                         var motionControl = scope.ServiceProvider.GetRequiredService<IMotionControl>();
 
-                        continue;
+                        //continue;
                         
                         // 1. 현재 상태 조회
                         var status = await motionControl.GetStatusAsync();

@@ -32,9 +32,9 @@ namespace PncNext.Infrastructure.Motion.Protocols.PA
         {
             { CMD_RND_CDT, 2000 },
             { CMD_RND_STOP, 3000 },
-            { CMD_RND_HALT, 3000 },
+            { CMD_RND_HALT, 3000 }, // *
             { CMD_RND_RST, 3000 },
-            { CMD_RND_INIT, 3000 }, 
+            { CMD_RND_INIT, 3000 }, // *
             { CMD_RND_HOME, 600000 }, // 10분 (원점 복귀 장시간 소요 대비)
             { CMD_RND_MODE, 3000 },
             { CMD_RND_PAUSE, 3000 },

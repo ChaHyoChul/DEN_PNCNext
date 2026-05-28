@@ -52,7 +52,7 @@ namespace PncNext.Infrastructure.Motion.Services
 
         public async Task StopAsync(int mode)
         {
-            await GetChannel("STS").StopAsync(mode);
+            await GetChannel("CMD").StopAsync(mode);
         }
 
         public async Task ErrorResetAsync()
