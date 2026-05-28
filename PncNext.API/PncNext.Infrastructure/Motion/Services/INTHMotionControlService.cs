@@ -1,4 +1,5 @@
 using PncNext.Domain.Interfaces;
+using PncNext.Infrastructure.Motion.Channels;
 
 namespace PncNext.Infrastructure.Motion.Services
 {

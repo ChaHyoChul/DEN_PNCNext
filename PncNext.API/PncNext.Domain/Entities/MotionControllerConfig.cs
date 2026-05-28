@@ -7,6 +7,7 @@ namespace PncNext.Domain.Entities
     {
         public int Id { get; set; }
         public string ControllerName { get; set; } = string.Empty;
+        public string ControllerType { get; set; } = "PA"; // PA, INTH, DUMMY
         public bool IsActive { get; set; }
 
         // 1:N 관계 - 하나의 제어기는 여러 개의 통신 아이템을 가질 수 있음

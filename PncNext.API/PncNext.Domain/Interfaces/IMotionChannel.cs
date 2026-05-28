@@ -82,11 +82,6 @@ namespace PncNext.Domain.Interfaces
         Task<byte[]> SendCustomCommandAsync(string command, params object[] args);
 
         /// <summary>
-        /// 해당 채널에 설정된 프로토콜 객체를 가져옵니다.
-        /// </summary>
-        IMotionProtocol Protocol { get; }
-
-        /// <summary>
         /// 하부 통신 포트의 원시 읽기 기능을 제공합니다.
         /// </summary>
         Task<byte[]> ReceiveRawAsync();

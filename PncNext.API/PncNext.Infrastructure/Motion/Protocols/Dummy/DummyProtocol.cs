@@ -4,7 +4,10 @@ using System.Text;
 
 namespace PncNext.Infrastructure.Motion.Protocols.Dummy
 {
-    public class DummyProtocol : IMotionProtocol
+    /// <summary>
+    /// 시뮬레이션용 Dummy 프로토콜 처리 클래스
+    /// </summary>
+    public class DummyProtocol
     {
         public MotionCommandInfo EncodeStop(int mode)
         {
@@ -52,7 +55,7 @@ namespace PncNext.Infrastructure.Motion.Protocols.Dummy
             return new MotionCommandInfo {
                 CommandKey = cmdKey,
                 Payload = Encoding.ASCII.GetBytes(cmdKey),
-                TimeoutMs = 5000 // 시뮬레이션은 빠르게
+                TimeoutMs = 5000
             };
         }
 

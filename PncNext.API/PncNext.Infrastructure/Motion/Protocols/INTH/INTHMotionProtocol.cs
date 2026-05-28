@@ -5,9 +5,9 @@ using System.Text;
 namespace PncNext.Infrastructure.Motion.Protocols.INTH
 {
     /// <summary>
-    /// INTH 모션 제어기 전용 프로토콜 구현 클래스
+    /// INTH 모션 제어기 전용 프로토콜 처리 클래스
     /// </summary>
-    public class INTHMotionProtocol : IMotionProtocol
+    public class INTHMotionProtocol
     {
         private const string HEADER = "@INTH";
         private const string FOOTER = "#";
@@ -63,7 +63,7 @@ namespace PncNext.Infrastructure.Motion.Protocols.INTH
             return new MotionCommandInfo {
                 CommandKey = cmdKey,
                 Payload = Encoding.ASCII.GetBytes(command),
-                TimeoutMs = 300000 // 5분
+                TimeoutMs = 300000 
             };
         }
 

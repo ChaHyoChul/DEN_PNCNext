@@ -2,18 +2,16 @@ using PncNext.Domain.Interfaces;
 using PncNext.Domain.Models;
 using System.Text;
 using System.Globalization;
-using Microsoft.EntityFrameworkCore.Metadata.Conventions;
 
 namespace PncNext.Infrastructure.Motion.Protocols.PA
 {
     /// <summary>
-    /// PA 모션 제어기 비동기 통신 규격(PAAsyncComm.md, 20260514-command-resp.md)을 반영한 프로토콜 구현 클래스
+    /// PA 모션 제어기 전용 프로토콜 처리 클래스 (내부 엔진)
     /// </summary>
-    public class PAMotionProtocol : IMotionProtocol
+    public class PAMotionProtocol
     {
         private const string TERMINATOR = "\r\n";
 
-        // 명령어 상수 정의
         public const string CMD_RND_CDT = "RND_CDT";
         public const string CMD_RND_STOP = "RND_STOP";
         public const string CMD_RND_HALT = "RND_HALT";
@@ -27,19 +25,18 @@ namespace PncNext.Infrastructure.Motion.Protocols.PA
         public const string CMD_RND_MMA = "RND_MMA";
         public const string CMD_RND_MDA = "RND_MDA";
 
-        // 명령별 기본 타임아웃 설정 (밀리초)
         private readonly Dictionary<string, int> _commandTimeouts = new()
         {
             { CMD_RND_CDT, 2000 },
             { CMD_RND_STOP, 3000 },
-            { CMD_RND_HALT, 3000 }, // *
+            { CMD_RND_HALT, 3000 },
             { CMD_RND_RST, 3000 },
-            { CMD_RND_INIT, 3000 }, // *
-            { CMD_RND_HOME, 600000 }, // 10분 (원점 복귀 장시간 소요 대비)
+            { CMD_RND_INIT, 3000 }, 
+            { CMD_RND_HOME, 600000 },
             { CMD_RND_MODE, 3000 },
             { CMD_RND_PAUSE, 3000 },
             { CMD_RND_CONTINUE, 3000 },
-            { CMD_RND_MMI, 10000 },    // 이동 명령은 기본 10초
+            { CMD_RND_MMI, 10000 },
             { CMD_RND_MMA, 10000 },
             { CMD_RND_MDA, 10000 }
         };
@@ -69,8 +66,7 @@ namespace PncNext.Infrastructure.Motion.Protocols.PA
         public MotionCommandInfo EncodeErrorReset()
         {
             string payload = string.Format(CultureInfo.InvariantCulture, "{0}{1}", CMD_RND_RST, TERMINATOR);
-            return new MotionCommandInfo
-            {
+            return new MotionCommandInfo {
                 CommandKey = CMD_RND_RST,
                 Payload = Encoding.ASCII.GetBytes(payload),
                 TimeoutMs = GetTimeout(CMD_RND_RST)
@@ -80,8 +76,7 @@ namespace PncNext.Infrastructure.Motion.Protocols.PA
         public MotionCommandInfo EncodeInitController()
         {
             string payload = string.Format(CultureInfo.InvariantCulture, "{0}{1}", CMD_RND_INIT, TERMINATOR);
-            return new MotionCommandInfo
-            {
+            return new MotionCommandInfo {
                 CommandKey = CMD_RND_INIT,
                 Payload = Encoding.ASCII.GetBytes(payload),
                 TimeoutMs = GetTimeout(CMD_RND_INIT)
@@ -90,7 +85,6 @@ namespace PncNext.Infrastructure.Motion.Protocols.PA
 
         public MotionCommandInfo EncodeHome()
         {
-            // 규격: RND_HOME\r\n
             return new MotionCommandInfo {
                 CommandKey = CMD_RND_HOME,
                 Payload = Encoding.ASCII.GetBytes($"{CMD_RND_HOME}{TERMINATOR}"),
@@ -100,7 +94,6 @@ namespace PncNext.Infrastructure.Motion.Protocols.PA
 
         public MotionCommandInfo EncodeMode(string mode)
         {
-            // 규격: RND_MODE [mode]\r\n
             string payload = string.Format(CultureInfo.InvariantCulture, "{0} {1}{2}", CMD_RND_MODE, mode, TERMINATOR);
             return new MotionCommandInfo {
                 CommandKey = CMD_RND_MODE,
@@ -129,7 +122,6 @@ namespace PncNext.Infrastructure.Motion.Protocols.PA
 
         public MotionCommandInfo EncodeMda(string gcode)
         {
-            // 규격: RND_MDA [gcode]\r\n
             string payload = string.Format(CultureInfo.InvariantCulture, "{0} {1}{2}", CMD_RND_MDA, gcode, TERMINATOR);
             return new MotionCommandInfo {
                 CommandKey = CMD_RND_MDA,
@@ -151,13 +143,11 @@ namespace PncNext.Infrastructure.Motion.Protocols.PA
         private MotionCommandInfo BuildMoveCommand(string cmdKey, double? x, double? y, double? z, double? a, double? b)
         {
             var sb = new StringBuilder(cmdKey);
-            
             if (x.HasValue) sb.AppendFormat(CultureInfo.InvariantCulture, " {0:F3},", x.Value);
             if (y.HasValue) sb.AppendFormat(CultureInfo.InvariantCulture, "{0:F3},", y.Value);
             if (z.HasValue) sb.AppendFormat(CultureInfo.InvariantCulture, "{0:F3},", z.Value);
             if (a.HasValue) sb.AppendFormat(CultureInfo.InvariantCulture, "{0:F3},", a.Value);
             if (b.HasValue) sb.AppendFormat(CultureInfo.InvariantCulture, "{0:F3}", b.Value);
-            
             sb.Append(TERMINATOR);
 
             return new MotionCommandInfo {
@@ -176,15 +166,25 @@ namespace PncNext.Infrastructure.Motion.Protocols.PA
             };
         }
 
+        public MotionCommandInfo EncodeCustom(string command, params object[] args)
+        {
+            string formatted = args.Length > 0 ? string.Format(CultureInfo.InvariantCulture, command, args) : command;
+            string firstWord = formatted.Split(' ')[0];
+
+            return new MotionCommandInfo {
+                CommandKey = firstWord,
+                Payload = Encoding.ASCII.GetBytes($"{formatted}{TERMINATOR}"),
+                TimeoutMs = GetTimeout(firstWord)
+            };
+        }
+
         public string ExtractCommandKey(byte[] response)
         {
             if (response == null || response.Length == 0) return string.Empty;
             string resStr = Encoding.ASCII.GetString(response).Trim();
-            
             string firstWord = resStr.Split(new[] { ' ', ',' }, StringSplitOptions.RemoveEmptyEntries)[0];
 
-            return firstWord switch
-            {
+            return firstWord switch {
                 CMD_RND_CDT => CMD_RND_CDT,
                 CMD_RND_STOP => CMD_RND_STOP,
                 CMD_RND_HOME => CMD_RND_HOME,
@@ -198,80 +198,22 @@ namespace PncNext.Infrastructure.Motion.Protocols.PA
             };
         }
 
-        public MotionStatus DecodeStatus(byte[] response)
-        {
-            if (response == null || response.Length == 0)
-                return MotionStatus.NotConnected;
-
-            string resStr = Encoding.ASCII.GetString(response).Trim();
-            bool isHomeComplete = true; 
-            int runStatus = 0;
-            bool isControllerError = false;
-
-            if (resStr.StartsWith(CMD_RND_CDT))
-            {
-                var dataPart = resStr.Replace(CMD_RND_CDT, "").Trim();
-                var parts = dataPart.Split(',');
-                
-                int offset = 0;
-                if (parts.Length > 0 && parts[0].StartsWith("E", StringComparison.OrdinalIgnoreCase))
-                {
-                    offset = 1;
-                    isControllerError = true;
-                }
-
-                if (parts.Length > 1 + offset && parts[1 + offset].StartsWith("PS:"))
-                {
-                    var psParts = parts[1 + offset].Split(':');
-                    if (psParts.Length >= 6) int.TryParse(psParts[5], out runStatus);
-                    else if (psParts.Length >= 4) int.TryParse(psParts[3], out runStatus);
-                }
-
-                if (parts.Length > 8 + offset && parts[8 + offset].StartsWith("SV:"))
-                {
-                    var svParts = parts[8 + offset].Split(':');
-                    if (svParts.Length >= 3) isHomeComplete = svParts[2] == "1";
-                }
-                
-                return isControllerError ? MotionStatus.Error : MapToMotionStatus(runStatus, isHomeComplete);
-            }
-
-            return MotionStatus.NotConnected;
-        }
-
-        public MotionCommandInfo EncodeCustom(string command, params object[] args)
-        {
-            string formatted = args.Length > 0 ? string.Format(CultureInfo.InvariantCulture, command, args) : command;
-            string firstWord = formatted.Split(' ')[0];
-
-            return new MotionCommandInfo {
-                CommandKey = firstWord,
-                Payload = Encoding.ASCII.GetBytes($"{formatted}{TERMINATOR}"),
-                TimeoutMs = GetTimeout(firstWord)
-            };
-        }
-
         public void UpdateStateFromResponse(byte[] response, PAMotionControllerState state)
         {
             if (response == null || response.Length == 0) return;
             string resStr = Encoding.ASCII.GetString(response).Trim();
-
-            if (resStr.StartsWith(CMD_RND_CDT))
-            {
-                ParseRndCdt(resStr, state);
-            }
+            if (resStr.StartsWith(CMD_RND_CDT)) ParseRndCdt(resStr, state);
         }
 
         private void ParseRndCdt(string payload, PAMotionControllerState state)
         {
             string dataPart = payload.Replace(CMD_RND_CDT, "").Trim();
             string[] parts = dataPart.Split(',');
-
             if (parts.Length < 18) return;
 
             int offset = 0;
             bool isControllerError = false;
-            if (parts.Length > 0 && parts[0].StartsWith("E", StringComparison.OrdinalIgnoreCase))
+            if (parts[0].StartsWith("E", StringComparison.OrdinalIgnoreCase))
             {
                 offset = 1;
                 isControllerError = true;
@@ -299,10 +241,8 @@ namespace PncNext.Infrastructure.Motion.Protocols.PA
                     int lineIdx = psParts.Length == 4 ? 1 : 3;
                     int errIdx = psParts.Length == 4 ? 2 : 4;
                     int runIdx = psParts.Length == 4 ? 3 : 5;
-
                     if (long.TryParse(psParts[lineIdx], out long line)) state.MillingLineNumber = line;
                     if (int.TryParse(psParts[errIdx], out int err)) state.GPLErrorCode = err;
-                    
                     int run = 0;
                     if (int.TryParse(psParts[runIdx], out run))
                     {
@@ -377,9 +317,7 @@ namespace PncNext.Infrastructure.Motion.Protocols.PA
         {
             if (runStatus == 1) return MotionStatus.Running;
             if (!isHomeComplete) return MotionStatus.NotReady;
-
-            return runStatus switch
-            {
+            return runStatus switch {
                 0 => MotionStatus.Ready,
                 1 => MotionStatus.Running,
                 2 => MotionStatus.Pause,
