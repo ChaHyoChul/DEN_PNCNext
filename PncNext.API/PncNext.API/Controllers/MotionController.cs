@@ -224,6 +224,170 @@ namespace PncNext.API.Controllers
                 return StatusCode(500, "정지 명령 전송에 실패했습니다.");
             }
         }
+
+        /// <summary>
+        /// 서보 전원을 제어합니다.
+        /// </summary>
+        [HttpPost("servo")]
+        public async Task<IActionResult> SetServo([FromQuery] bool on)
+        {
+            try
+            {
+                await _motionControl.SetServoAsync(on);
+                return Ok(new { message = $"서보가 {(on ? "ON" : "OFF")} 되었습니다." });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "서보 제어 명령 전송 중 오류 발생");
+                return StatusCode(500, "서보 제어 명령 전송에 실패했습니다.");
+            }
+        }
+
+        /// <summary>
+        /// 조그 이동을 시작합니다.
+        /// </summary>
+        [HttpPost("jog/start")]
+        public async Task<IActionResult> StartJog([FromQuery] int axis, [FromQuery] int direction)
+        {
+            try
+            {
+                await _motionControl.StartJogAsync(axis, direction);
+                return Ok(new { message = "조그 이동이 시작되었습니다." });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "조그 시작 명령 전송 중 오류 발생");
+                return StatusCode(500, "조그 시작 명령 전송에 실패했습니다.");
+            }
+        }
+
+        /// <summary>
+        /// 조그 이동을 정지합니다.
+        /// </summary>
+        [HttpPost("jog/stop")]
+        public async Task<IActionResult> StopJog()
+        {
+            try
+            {
+                await _motionControl.StopJogAsync();
+                return Ok(new { message = "조그 이동이 정지되었습니다." });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "조그 정지 명령 전송 중 오류 발생");
+                return StatusCode(500, "조그 정지 명령 전송에 실패했습니다.");
+            }
+        }
+
+        /// <summary>
+        /// 조그 이동 속도를 설정합니다. (0~100)
+        /// </summary>
+        [HttpPost("jog/speed")]
+        public async Task<IActionResult> SetJogSpeed([FromQuery] int speed)
+        {
+            try
+            {
+                await _motionControl.SetJogSpeedAsync(speed);
+                return Ok(new { message = $"조그 속도가 {speed}%로 설정되었습니다." });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "조그 속도 설정 중 오류 발생");
+                return StatusCode(500, "조그 속도 설정에 실패했습니다.");
+            }
+        }
+
+        /// <summary>
+        /// 디지털 출력을 제어합니다.
+        /// </summary>
+        [HttpPost("output")]
+        public async Task<IActionResult> SetOutput([FromQuery] int bitNo, [FromQuery] bool on)
+        {
+            try
+            {
+                await _motionControl.SetOutputAsync(bitNo, on);
+                return Ok(new { message = $"Output {bitNo}번이 {(on ? "ON" : "OFF")} 되었습니다." });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "출력 제어 중 오류 발생");
+                return StatusCode(500, "출력 제어에 실패했습니다.");
+            }
+        }
+
+        /// <summary>
+        /// 스핀들 시스템을 초기화합니다.
+        /// </summary>
+        [HttpPost("spindle/init")]
+        public async Task<IActionResult> InitSpindle()
+        {
+            try
+            {
+                await _motionControl.InitSpindleAsync();
+                return Ok(new { message = "스핀들 초기화 명령이 전송되었습니다." });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "스핀들 초기화 중 오류 발생");
+                return StatusCode(500, "스핀들 초기화에 실패했습니다.");
+            }
+        }
+
+        // [2단계] 파라미터 관련 API
+        [HttpGet("config/{index}")]
+        public async Task<IActionResult> GetConfig(int index) => await SafeExecute(() => _motionControl.GetCoordinateOffsetAsync(index));
+
+        [HttpPost("config/{index}")]
+        public async Task<IActionResult> SetConfig(int index, [FromBody] double[] values) => await SafeExecute(() => _motionControl.SetCoordinateOffsetAsync(index, values));
+
+        [HttpGet("teaching/{index}")]
+        public async Task<IActionResult> GetTeaching(int index) => await SafeExecute(() => _motionControl.GetTeachingPointAsync(index));
+
+        [HttpPost("teaching/{index}")]
+        public async Task<IActionResult> SetTeaching(int index, [FromBody] double[] values) => await SafeExecute(() => _motionControl.SetTeachingPointAsync(index, values));
+
+        [HttpGet("offset/z-origin")]
+        public async Task<IActionResult> GetZOriginOffset() => await SafeExecute(() => _motionControl.GetZOriginOffsetAsync());
+
+        [HttpPost("offset/z-origin")]
+        public async Task<IActionResult> SetZOriginOffset([FromQuery] double offset) => await SafeExecute(() => _motionControl.SetZOriginOffsetAsync(offset));
+
+        [HttpGet("sensing/high-speed")]
+        public async Task<IActionResult> GetSensingHighSpeed() => await SafeExecute(() => _motionControl.GetToolSensingHighSpeedAsync());
+
+        [HttpPost("sensing/high-speed")]
+        public async Task<IActionResult> SetSensingHighSpeed([FromQuery] int speed) => await SafeExecute(() => _motionControl.SetToolSensingHighSpeedAsync(speed));
+
+        [HttpGet("limit/positive")]
+        public async Task<IActionResult> GetLimitPositive() => await SafeExecute(() => _motionControl.GetSoftLimitPositiveAsync());
+
+        [HttpPost("limit/positive")]
+        public async Task<IActionResult> SetLimitPositive([FromBody] double[] values) => await SafeExecute(() => _motionControl.SetSoftLimitPositiveAsync(values));
+
+        // [3단계] 시스템 관련 API
+        [HttpGet("system/ip/controller")]
+        public async Task<IActionResult> GetControllerIp() => await SafeExecute(() => _motionControl.GetControllerIpAsync());
+
+        [HttpPost("system/ip/controller")]
+        public async Task<IActionResult> SetControllerIp([FromQuery] string ip) => await SafeExecute(() => _motionControl.SetControllerIpAsync(ip));
+
+        [HttpGet("system/version")]
+        public async Task<IActionResult> GetVersion() => await SafeExecute(() => _motionControl.GetFirmwareVersionAsync());
+
+        [HttpPost("system/save-flash")]
+        public async Task<IActionResult> SaveFlash() => await SafeExecute(() => _motionControl.SaveToFlashAsync());
+
+        private async Task<IActionResult> SafeExecute(Func<Task> action)
+        {
+            try { await action(); return Ok(); }
+            catch (Exception ex) { _logger.LogError(ex, "명령 실행 중 오류"); return StatusCode(500, ex.Message); }
+        }
+
+        private async Task<IActionResult> SafeExecute<T>(Func<Task<T>> action)
+        {
+            try { var result = await action(); return Ok(result); }
+            catch (Exception ex) { _logger.LogError(ex, "조회 실행 중 오류"); return StatusCode(500, ex.Message); }
+        }
     }
 
     public class OptionalMoveRequest

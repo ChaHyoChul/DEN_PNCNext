@@ -134,6 +134,11 @@ namespace PncNext.Infrastructure.Motion.Channels
             }
         }
 
+        protected byte[] SendAndReceiveSync(MotionCommandInfo cmdInfo)
+        {
+            return SendAndReceiveAsync(cmdInfo).GetAwaiter().GetResult();
+        }
+
         protected void CheckState()
         {
             if (IsFaulted) throw new InvalidOperationException("Channel is in faulted state due to communication error or timeout.");

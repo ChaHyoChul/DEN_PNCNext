@@ -12,6 +12,7 @@ namespace PncNext.Infrastructure.Motion.Protocols.PA
     {
         private const string TERMINATOR = "\r\n";
 
+        // 명령어 상수 정의
         public const string CMD_RND_CDT = "RND_CDT";
         public const string CMD_RND_STOP = "RND_STOP";
         public const string CMD_RND_HALT = "RND_HALT";
@@ -24,7 +25,45 @@ namespace PncNext.Infrastructure.Motion.Protocols.PA
         public const string CMD_RND_MMI = "RND_MMI";
         public const string CMD_RND_MMA = "RND_MMA";
         public const string CMD_RND_MDA = "RND_MDA";
+        public const string CMD_RENABLE = "RENABLE";
+        public const string CMD_RDISABLE = "RDISABLE";
+        public const string CMD_JOG = "JOG";
+        public const string CMD_JSTOP = "JSTOP";
+        public const string CMD_RJSS = "RJSS";
+        public const string CMD_WJSS = "WJSS";
+        public const string CMD_IOT = "IOT";
+        public const string CMD_RND_SINIT = "RND_SINIT";
 
+        // [2단계] 파라미터 및 데이터 동기화
+        public const string CMD_RCFG = "RCFG";
+        public const string CMD_WCFG = "WCFG";
+        public const string CMD_RTCP = "RTCP";
+        public const string CMD_WTCP = "WTCP";
+        public const string CMD_RZOO = "RZOO";
+        public const string CMD_WZOO = "WZOO";
+        public const string CMD_RTHS = "RTHS";
+        public const string CMD_WTHS = "WTHS";
+        public const string CMD_RTLS = "RTLS";
+        public const string CMD_WTLS = "WTLS";
+        public const string CMD_RTMG = "RTMG";
+        public const string CMD_WTMG = "WTMG";
+        public const string CMD_PTPPO = "PTPPO";
+        public const string CMD_WTPPO = "WTPPO";
+        public const string CMD_RMAXL = "RMAXL";
+        public const string CMD_WMAXL = "WMAXL";
+        public const string CMD_RMINL = "RMINL";
+        public const string CMD_WMINL = "WMINL";
+
+        // [3단계] 시스템 설정 및 정보 조회
+        public const string CMD_RARD = "RARD";
+        public const string CMD_WARD = "WARD";
+        public const string CMD_RRIOADR = "RRIOADR";
+        public const string CMD_WRIOADR = "WRIOADR";
+        public const string CMD_VER = "VER";
+        public const string CMD_SAVEFLASH = "SAVEFLASH";
+        public const string CMD_RND_STIN = "RND_STIN";
+
+        // 명령별 기본 타임아웃 설정 (밀리초)
         private readonly Dictionary<string, int> _commandTimeouts = new()
         {
             { CMD_RND_CDT, 2000 },
@@ -38,7 +77,28 @@ namespace PncNext.Infrastructure.Motion.Protocols.PA
             { CMD_RND_CONTINUE, 3000 },
             { CMD_RND_MMI, 10000 },
             { CMD_RND_MMA, 10000 },
-            { CMD_RND_MDA, 10000 }
+            { CMD_RND_MDA, 10000 },
+            { CMD_RENABLE, 3000 },
+            { CMD_RDISABLE, 3000 },
+            { CMD_JOG, 3000 },
+            { CMD_JSTOP, 3000 },
+            { CMD_RJSS, 3000 },
+            { CMD_WJSS, 3000 },
+            { CMD_IOT, 3000 },
+            { CMD_RND_SINIT, 5000 },
+            { CMD_RCFG, 3000 }, { CMD_WCFG, 3000 },
+            { CMD_RTCP, 3000 }, { CMD_WTCP, 3000 },
+            { CMD_RZOO, 3000 }, { CMD_WZOO, 3000 },
+            { CMD_RTHS, 3000 }, { CMD_WTHS, 3000 },
+            { CMD_RTLS, 3000 }, { CMD_WTLS, 3000 },
+            { CMD_RTMG, 3000 }, { CMD_WTMG, 3000 },
+            { CMD_PTPPO, 3000 }, { CMD_WTPPO, 3000 },
+            { CMD_RMAXL, 3000 }, { CMD_WMAXL, 3000 },
+            { CMD_RMINL, 3000 }, { CMD_WMINL, 3000 },
+            { CMD_RARD, 3000 }, { CMD_WARD, 3000 },
+            { CMD_RRIOADR, 3000 }, { CMD_WRIOADR, 3000 },
+            { CMD_VER, 3000 }, { CMD_SAVEFLASH, 5000 },
+            { CMD_RND_STIN, 3000 }
         };
 
         private int GetTimeout(string command) => _commandTimeouts.TryGetValue(command, out var timeout) ? timeout : 3000;
@@ -130,6 +190,139 @@ namespace PncNext.Infrastructure.Motion.Protocols.PA
             };
         }
 
+        public MotionCommandInfo EncodeServo(bool on)
+        {
+            string cmd = on ? CMD_RENABLE : CMD_RDISABLE;
+            return new MotionCommandInfo {
+                CommandKey = cmd,
+                Payload = Encoding.ASCII.GetBytes($"{cmd}{TERMINATOR}"),
+                TimeoutMs = GetTimeout(cmd)
+            };
+        }
+
+        public MotionCommandInfo EncodeJog(int axis, int direction)
+        {
+            string payload = string.Format(CultureInfo.InvariantCulture, "{0} {1} {2}{3}", CMD_JOG, axis, direction, TERMINATOR);
+            return new MotionCommandInfo {
+                CommandKey = CMD_JOG,
+                Payload = Encoding.ASCII.GetBytes(payload),
+                TimeoutMs = GetTimeout(CMD_JOG)
+            };
+        }
+
+        public MotionCommandInfo EncodeJogStop()
+        {
+            return new MotionCommandInfo {
+                CommandKey = CMD_JSTOP,
+                Payload = Encoding.ASCII.GetBytes($"{CMD_JSTOP}{TERMINATOR}"),
+                TimeoutMs = GetTimeout(CMD_JSTOP)
+            };
+        }
+
+        public MotionCommandInfo EncodeSetJogSpeed(int speed)
+        {
+            string payload = string.Format(CultureInfo.InvariantCulture, "{0} {1}{2}", CMD_WJSS, speed, TERMINATOR);
+            return new MotionCommandInfo {
+                CommandKey = CMD_WJSS,
+                Payload = Encoding.ASCII.GetBytes(payload),
+                TimeoutMs = GetTimeout(CMD_WJSS)
+            };
+        }
+
+        public MotionCommandInfo EncodeGetJogSpeed()
+        {
+            return new MotionCommandInfo {
+                CommandKey = CMD_RJSS,
+                Payload = Encoding.ASCII.GetBytes($"{CMD_RJSS}{TERMINATOR}"),
+                TimeoutMs = GetTimeout(CMD_RJSS)
+            };
+        }
+
+        public MotionCommandInfo EncodeOutput(int bitNo, bool on)
+        {
+            int signal = on ? 1 : 0;
+            string payload = string.Format(CultureInfo.InvariantCulture, "{0} {1} {2}{3}", CMD_IOT, bitNo, signal, TERMINATOR);
+            return new MotionCommandInfo {
+                CommandKey = CMD_IOT,
+                Payload = Encoding.ASCII.GetBytes(payload),
+                TimeoutMs = GetTimeout(CMD_IOT)
+            };
+        }
+
+        public MotionCommandInfo EncodeInitSpindle()
+        {
+            return new MotionCommandInfo {
+                CommandKey = CMD_RND_SINIT,
+                Payload = Encoding.ASCII.GetBytes($"{CMD_RND_SINIT}{TERMINATOR}"),
+                TimeoutMs = GetTimeout(CMD_RND_SINIT)
+            };
+        }
+
+        // [2단계] 파라미터 인코딩
+        public MotionCommandInfo EncodeReadConfig(int index) => CreateSimpleReadCommand(CMD_RCFG, index);
+        public MotionCommandInfo EncodeWriteConfig(int index, double[] vals) => CreateArrayWriteCommand(CMD_WCFG, index, vals);
+        
+        public MotionCommandInfo EncodeReadTeaching(int index) => CreateSimpleReadCommand(CMD_RTCP, index);
+        public MotionCommandInfo EncodeWriteTeaching(int index, double[] vals) => CreateArrayWriteCommand(CMD_WTCP, index, vals);
+
+        public MotionCommandInfo EncodeReadZOriginOffset() => CreateSimpleReadCommand(CMD_RZOO);
+        public MotionCommandInfo EncodeWriteZOriginOffset(double val) => CreateSingleValueWriteCommand(CMD_WZOO, val);
+
+        public MotionCommandInfo EncodeReadToolSensingHighSpeed() => CreateSimpleReadCommand(CMD_RTHS);
+        public MotionCommandInfo EncodeWriteToolSensingHighSpeed(int val) => CreateSingleValueWriteCommand(CMD_WTHS, val);
+
+        public MotionCommandInfo EncodeReadToolSensingLowSpeed() => CreateSimpleReadCommand(CMD_RTLS);
+        public MotionCommandInfo EncodeWriteToolSensingLowSpeed(int val) => CreateSingleValueWriteCommand(CMD_WTLS, val);
+
+        public MotionCommandInfo EncodeReadToolSensingMargin() => CreateSimpleReadCommand(CMD_RTMG);
+        public MotionCommandInfo EncodeWriteToolSensingMargin(double val) => CreateSingleValueWriteCommand(CMD_WTMG, val);
+
+        public MotionCommandInfo EncodeReadToolPocketPutOffset() => CreateSimpleReadCommand(CMD_PTPPO);
+        public MotionCommandInfo EncodeWriteToolPocketPutOffset(double val) => CreateSingleValueWriteCommand(CMD_WTPPO, val);
+
+        public MotionCommandInfo EncodeReadSoftLimitPositive() => CreateSimpleReadCommand(CMD_RMAXL);
+        public MotionCommandInfo EncodeWriteSoftLimitPositive(double[] vals) => CreateArrayWriteCommand(CMD_WMAXL, null, vals);
+        public MotionCommandInfo EncodeReadSoftLimitNegative() => CreateSimpleReadCommand(CMD_RMINL);
+        public MotionCommandInfo EncodeWriteSoftLimitNegative(double[] vals) => CreateArrayWriteCommand(CMD_WMINL, null, vals);
+
+        // [3단계] 시스템 설정 인코딩
+        public MotionCommandInfo EncodeReadControllerIp() => CreateSimpleReadCommand(CMD_RARD);
+        public MotionCommandInfo EncodeWriteControllerIp(string ip) => CreateSingleValueWriteCommand(CMD_WARD, ip);
+        public MotionCommandInfo EncodeReadIoBoardIp() => CreateSimpleReadCommand(CMD_RRIOADR);
+        public MotionCommandInfo EncodeWriteIoBoardIp(string ip) => CreateSingleValueWriteCommand(CMD_WRIOADR, ip);
+        public MotionCommandInfo EncodeReadVersion() => CreateSimpleReadCommand(CMD_VER);
+        public MotionCommandInfo EncodeSaveFlash() => CreateSimpleReadCommand(CMD_SAVEFLASH);
+        public MotionCommandInfo EncodeRestoreToolInfo(int toolNo, double length, bool updated)
+        {
+            int flag = updated ? 1 : 0;
+            string payload = string.Format(CultureInfo.InvariantCulture, "{0} {1} {2:F3} {3}{4}", CMD_RND_STIN, toolNo, length, flag, TERMINATOR);
+            return new MotionCommandInfo { CommandKey = CMD_RND_STIN, Payload = Encoding.ASCII.GetBytes(payload), TimeoutMs = GetTimeout(CMD_RND_STIN) };
+        }
+
+        // 공통 헬퍼 메서드들
+        private MotionCommandInfo CreateSimpleReadCommand(string cmd, int? index = null)
+        {
+            string payload = index.HasValue ? $"{cmd} {index.Value}{TERMINATOR}" : $"{cmd}{TERMINATOR}";
+            return new MotionCommandInfo { CommandKey = cmd, Payload = Encoding.ASCII.GetBytes(payload), TimeoutMs = GetTimeout(cmd) };
+        }
+
+        private MotionCommandInfo CreateSingleValueWriteCommand(string cmd, object val)
+        {
+            string payload = string.Format(CultureInfo.InvariantCulture, "{0} {1}{2}", cmd, val, TERMINATOR);
+            return new MotionCommandInfo { CommandKey = cmd, Payload = Encoding.ASCII.GetBytes(payload), TimeoutMs = GetTimeout(cmd) };
+        }
+
+        private MotionCommandInfo CreateArrayWriteCommand(string cmd, int? index, double[] vals)
+        {
+            var sb = new StringBuilder(cmd);
+            if (index.HasValue) sb.AppendFormat(CultureInfo.InvariantCulture, " {0}", index.Value);
+            
+            foreach (var v in vals) sb.AppendFormat(CultureInfo.InvariantCulture, " {0:F3},", v);
+            string payload = sb.ToString().TrimEnd(',') + TERMINATOR;
+            
+            return new MotionCommandInfo { CommandKey = cmd, Payload = Encoding.ASCII.GetBytes(payload), TimeoutMs = GetTimeout(cmd) };
+        }
+
         public MotionCommandInfo EncodeMoveIncremental(double? x, double? y, double? z, double? a, double? b)
         {
             return BuildMoveCommand(CMD_RND_MMI, x, y, z, a, b);
@@ -194,6 +387,28 @@ namespace PncNext.Infrastructure.Motion.Protocols.PA
                 CMD_RND_MMI => CMD_RND_MMI,
                 CMD_RND_MMA => CMD_RND_MMA,
                 CMD_RND_MDA => CMD_RND_MDA,
+                CMD_RENABLE => CMD_RENABLE,
+                CMD_RDISABLE => CMD_RDISABLE,
+                CMD_JOG => CMD_JOG,
+                CMD_JSTOP => CMD_JSTOP,
+                CMD_RJSS => CMD_RJSS,
+                CMD_WJSS => CMD_WJSS,
+                CMD_IOT => CMD_IOT,
+                CMD_RND_SINIT => CMD_RND_SINIT,
+                CMD_RCFG => CMD_RCFG,
+                CMD_RTCP => CMD_RTCP,
+                CMD_RZOO => CMD_RZOO,
+                CMD_RTHS => CMD_RTHS,
+                CMD_RTLS => CMD_RTLS,
+                CMD_RTMG => CMD_RTMG,
+                CMD_PTPPO => CMD_PTPPO,
+                CMD_RMAXL => CMD_RMAXL,
+                CMD_RMINL => CMD_RMINL,
+                CMD_RARD => CMD_RARD,
+                CMD_RRIOADR => CMD_RRIOADR,
+                CMD_VER => CMD_VER,
+                CMD_SAVEFLASH => CMD_SAVEFLASH,
+                CMD_RND_STIN => CMD_RND_STIN,
                 _ => firstWord
             };
         }

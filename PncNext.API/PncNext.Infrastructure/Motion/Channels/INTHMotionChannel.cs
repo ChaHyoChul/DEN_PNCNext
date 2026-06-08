@@ -26,6 +26,43 @@ namespace PncNext.Infrastructure.Motion.Channels
             await SendAndReceiveAsync(_protocol.EncodeHalt());
         }
 
+        public async Task SetServoAsync(bool on) { }
+        public async Task StartJogAsync(int axis, int direction) { }
+        public async Task StopJogAsync() { }
+        public async Task SetJogSpeedAsync(int speed) { }
+        public async Task<int> GetJogSpeedAsync() => 0;
+        public async Task SetOutputAsync(int bitNo, bool on) { }
+        public async Task InitSpindleAsync() { }
+
+        // [2단계] 파라미터 스텁
+        public async Task<double[]> GetCoordinateOffsetAsync(int index) => new double[5];
+        public async Task SetCoordinateOffsetAsync(int index, double[] values) { }
+        public async Task<double[]> GetTeachingPointAsync(int index) => new double[5];
+        public async Task SetTeachingPointAsync(int index, double[] values) { }
+        public async Task<double> GetZOriginOffsetAsync() => 0;
+        public async Task SetZOriginOffsetAsync(double offset) { }
+        public async Task<int> GetToolSensingHighSpeedAsync() => 0;
+        public async Task SetToolSensingHighSpeedAsync(int speed) { }
+        public async Task<int> GetToolSensingLowSpeedAsync() => 0;
+        public async Task SetToolSensingLowSpeedAsync(int speed) { }
+        public async Task<double> GetToolSensingMarginAsync() => 0;
+        public async Task SetToolSensingMarginAsync(double margin) { }
+        public async Task<double> GetToolPocketPutOffsetAsync() => 0;
+        public async Task SetToolPocketPutOffsetAsync(double offset) { }
+        public async Task<double[]> GetSoftLimitPositiveAsync() => new double[6];
+        public async Task SetSoftLimitPositiveAsync(double[] values) { }
+        public async Task<double[]> GetSoftLimitNegativeAsync() => new double[6];
+        public async Task SetSoftLimitNegativeAsync(double[] values) { }
+
+        // [3단계] 시스템 설정 스텁
+        public async Task<string> GetControllerIpAsync() => "127.0.0.1";
+        public async Task SetControllerIpAsync(string ip) { }
+        public async Task<string> GetIoBoardIpAsync() => "127.0.0.1";
+        public async Task SetIoBoardIpAsync(string ip) { }
+        public async Task<string> GetFirmwareVersionAsync() => "1.0.0";
+        public async Task SaveToFlashAsync() { }
+        public async Task RestoreToolInfoAsync(int toolNo, double length, bool updated) { }
+
         public async Task ErrorResetAsync()
         {
             await SendAndReceiveAsync(_protocol.EncodeErrorReset());

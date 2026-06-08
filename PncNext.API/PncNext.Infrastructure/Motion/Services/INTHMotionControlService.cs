@@ -50,6 +50,80 @@ namespace PncNext.Infrastructure.Motion.Services
             await GetChannel("CMD").StopAsync(mode);
         }
 
+        public async Task SetServoAsync(bool on)
+        {
+            await GetChannel("CMD").SetServoAsync(on);
+        }
+
+        public async Task StartJogAsync(int axis, int direction)
+        {
+            await GetChannel("CMD").StartJogAsync(axis, direction);
+        }
+
+        public async Task StopJogAsync()
+        {
+            await GetChannel("CMD").StopJogAsync();
+        }
+
+        public async Task SetJogSpeedAsync(int speed)
+        {
+            await GetChannel("CMD").SetJogSpeedAsync(speed);
+        }
+
+        public async Task<int> GetJogSpeedAsync()
+        {
+            return await GetChannel("CMD").GetJogSpeedAsync();
+        }
+
+        public async Task SetOutputAsync(int bitNo, bool on)
+        {
+            await GetChannel("CMD").SetOutputAsync(bitNo, on);
+        }
+
+        public async Task InitSpindleAsync()
+        {
+            await GetChannel("CMD").InitSpindleAsync();
+        }
+
+        // [2단계] 파라미터 구현
+        public async Task<double[]> GetCoordinateOffsetAsync(int index) => await GetChannel("CMD").GetCoordinateOffsetAsync(index);
+        public async Task SetCoordinateOffsetAsync(int index, double[] values) => await GetChannel("CMD").SetCoordinateOffsetAsync(index, values);
+        
+        public async Task<double[]> GetTeachingPointAsync(int index) => await GetChannel("CMD").GetTeachingPointAsync(index);
+        public async Task SetTeachingPointAsync(int index, double[] values) => await GetChannel("CMD").SetTeachingPointAsync(index, values);
+
+        public async Task<double> GetZOriginOffsetAsync() => await GetChannel("CMD").GetZOriginOffsetAsync();
+        public async Task SetZOriginOffsetAsync(double offset) => await GetChannel("CMD").SetZOriginOffsetAsync(offset);
+
+        public async Task<int> GetToolSensingHighSpeedAsync() => await GetChannel("CMD").GetToolSensingHighSpeedAsync();
+        public async Task SetToolSensingHighSpeedAsync(int speed) => await GetChannel("CMD").SetToolSensingHighSpeedAsync(speed);
+
+        public async Task<int> GetToolSensingLowSpeedAsync() => await GetChannel("CMD").GetToolSensingLowSpeedAsync();
+        public async Task SetToolSensingLowSpeedAsync(int speed) => await GetChannel("CMD").SetToolSensingLowSpeedAsync(speed);
+
+        public async Task<double> GetToolSensingMarginAsync() => await GetChannel("CMD").GetToolSensingMarginAsync();
+        public async Task SetToolSensingMarginAsync(double margin) => await GetChannel("CMD").SetToolSensingMarginAsync(margin);
+
+        public async Task<double> GetToolPocketPutOffsetAsync() => await GetChannel("CMD").GetToolPocketPutOffsetAsync();
+        public async Task SetToolPocketPutOffsetAsync(double offset) => await GetChannel("CMD").SetToolPocketPutOffsetAsync(offset);
+
+        public async Task<double[]> GetSoftLimitPositiveAsync() => await GetChannel("CMD").GetSoftLimitPositiveAsync();
+        public async Task SetSoftLimitPositiveAsync(double[] values) => await GetChannel("CMD").SetSoftLimitPositiveAsync(values);
+
+        public async Task<double[]> GetSoftLimitNegativeAsync() => await GetChannel("CMD").GetSoftLimitNegativeAsync();
+        public async Task SetSoftLimitNegativeAsync(double[] values) => await GetChannel("CMD").SetSoftLimitNegativeAsync(values);
+
+        // [3단계] 시스템 설정 구현
+        public async Task<string> GetControllerIpAsync() => await GetChannel("CMD").GetControllerIpAsync();
+        public async Task SetControllerIpAsync(string ip) => await GetChannel("CMD").SetControllerIpAsync(ip);
+
+        public async Task<string> GetIoBoardIpAsync() => await GetChannel("CMD").GetIoBoardIpAsync();
+        public async Task SetIoBoardIpAsync(string ip) => await GetChannel("CMD").SetIoBoardIpAsync(ip);
+
+        public async Task<string> GetFirmwareVersionAsync() => await GetChannel("CMD").GetFirmwareVersionAsync();
+        public async Task SaveToFlashAsync() => await GetChannel("CMD").SaveToFlashAsync();
+        public async Task RestoreToolInfoAsync(int toolNo, double length, bool updated) => await GetChannel("CMD").RestoreToolInfoAsync(toolNo, length, updated);
+
         public async Task ErrorResetAsync()
         {
             await GetChannel("CMD").ErrorResetAsync();

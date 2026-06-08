@@ -42,6 +42,70 @@ namespace PncNext.Domain.Interfaces
         Task StopAsync(int mode);
 
         /// <summary>
+        /// 서보 전원을 제어합니다.
+        /// </summary>
+        Task SetServoAsync(bool on);
+
+        /// <summary>
+        /// 조그 이동을 시작합니다.
+        /// </summary>
+        Task StartJogAsync(int axis, int direction);
+
+        /// <summary>
+        /// 조그 이동을 정지합니다.
+        /// </summary>
+        Task StopJogAsync();
+
+        /// <summary>
+        /// 조그 속도를 설정합니다.
+        /// </summary>
+        Task SetJogSpeedAsync(int speed);
+
+        /// <summary>
+        /// 조그 속도를 읽어옵니다.
+        /// </summary>
+        Task<int> GetJogSpeedAsync();
+
+        /// <summary>
+        /// 디지털 출력을 제어합니다.
+        /// </summary>
+        Task SetOutputAsync(int bitNo, bool on);
+
+        /// <summary>
+        /// 스핀들 시스템을 초기화합니다.
+        /// </summary>
+        Task InitSpindleAsync();
+
+        // [2단계] 파라미터 및 데이터 동기화
+        Task<double[]> GetCoordinateOffsetAsync(int index);
+        Task SetCoordinateOffsetAsync(int index, double[] values);
+        Task<double[]> GetTeachingPointAsync(int index);
+        Task SetTeachingPointAsync(int index, double[] values);
+        Task<double> GetZOriginOffsetAsync();
+        Task SetZOriginOffsetAsync(double offset);
+        Task<int> GetToolSensingHighSpeedAsync();
+        Task SetToolSensingHighSpeedAsync(int speed);
+        Task<int> GetToolSensingLowSpeedAsync();
+        Task SetToolSensingLowSpeedAsync(int speed);
+        Task<double> GetToolSensingMarginAsync();
+        Task SetToolSensingMarginAsync(double margin);
+        Task<double> GetToolPocketPutOffsetAsync();
+        Task SetToolPocketPutOffsetAsync(double offset);
+        Task<double[]> GetSoftLimitPositiveAsync();
+        Task SetSoftLimitPositiveAsync(double[] values);
+        Task<double[]> GetSoftLimitNegativeAsync();
+        Task SetSoftLimitNegativeAsync(double[] values);
+
+        // [3단계] 시스템 설정 및 정보 조회
+        Task<string> GetControllerIpAsync();
+        Task SetControllerIpAsync(string ip);
+        Task<string> GetIoBoardIpAsync();
+        Task SetIoBoardIpAsync(string ip);
+        Task<string> GetFirmwareVersionAsync();
+        Task SaveToFlashAsync();
+        Task RestoreToolInfoAsync(int toolNo, double length, bool updated);
+
+        /// <summary>
         /// 에러 클리어 합니다 
         /// </summary>
         /// <returns></returns>

@@ -1,6 +1,8 @@
 using PncNext.Domain.Interfaces;
 using PncNext.Domain.Models;
 using PncNext.Infrastructure.Motion.Protocols.PA;
+using System.Text;
+using System.Globalization;
 
 namespace PncNext.Infrastructure.Motion.Channels
 {
@@ -24,6 +26,123 @@ namespace PncNext.Infrastructure.Motion.Channels
         {
             await SendAndReceiveAsync(_protocol.EncodeStop(mode));
             await SendAndReceiveAsync(_protocol.EncodeHalt());
+        }
+
+        public async Task SetServoAsync(bool on)
+        {
+            await SendAndReceiveAsync(_protocol.EncodeServo(on));
+        }
+
+        public async Task StartJogAsync(int axis, int direction)
+        {
+            await SendAndReceiveAsync(_protocol.EncodeJog(axis, direction));
+        }
+
+        public async Task StopJogAsync()
+        {
+            await SendAndReceiveAsync(_protocol.EncodeJogStop());
+        }
+
+        public async Task SetJogSpeedAsync(int speed)
+        {
+            await SendAndReceiveAsync(_protocol.EncodeSetJogSpeed(speed));
+        }
+
+        public async Task<int> GetJogSpeedAsync()
+        {
+            var response = await SendAndReceiveAsync(_protocol.EncodeGetJogSpeed());
+            if (response == null || response.Length == 0) return 0;
+            
+            string resStr = Encoding.ASCII.GetString(response).Trim();
+            // RJSS [value] 형식 가정
+            var parts = resStr.Split(' ', ',');
+            if (parts.Length > 1 && int.TryParse(parts[1], out int speed)) return speed;
+            return 0;
+        }
+
+        public async Task SetOutputAsync(int bitNo, bool on)
+        {
+            await SendAndReceiveAsync(_protocol.EncodeOutput(bitNo, on));
+        }
+
+        public async Task InitSpindleAsync()
+        {
+            await SendAndReceiveAsync(_protocol.EncodeInitSpindle());
+        }
+
+        // [2단계] 파라미터 구현
+        public async Task<double[]> GetCoordinateOffsetAsync(int index) => await SendAndParseArrayAsync(_protocol.EncodeReadConfig(index));
+        public async Task SetCoordinateOffsetAsync(int index, double[] values) => await SendAndReceiveAsync(_protocol.EncodeWriteConfig(index, values));
+        
+        public async Task<double[]> GetTeachingPointAsync(int index) => await SendAndParseArrayAsync(_protocol.EncodeReadTeaching(index));
+        public async Task SetTeachingPointAsync(int index, double[] values) => await SendAndReceiveAsync(_protocol.EncodeWriteTeaching(index, values));
+
+        public async Task<double> GetZOriginOffsetAsync() => await SendAndParseDoubleAsync(_protocol.EncodeReadZOriginOffset());
+        public async Task SetZOriginOffsetAsync(double offset) => await SendAndReceiveAsync(_protocol.EncodeWriteZOriginOffset(offset));
+
+        public async Task<int> GetToolSensingHighSpeedAsync() => await SendAndParseIntAsync(_protocol.EncodeReadToolSensingHighSpeed());
+        public async Task SetToolSensingHighSpeedAsync(int speed) => await SendAndReceiveAsync(_protocol.EncodeWriteToolSensingHighSpeed(speed));
+
+        public async Task<int> GetToolSensingLowSpeedAsync() => await SendAndParseIntAsync(_protocol.EncodeReadToolSensingLowSpeed());
+        public async Task SetToolSensingLowSpeedAsync(int speed) => await SendAndReceiveAsync(_protocol.EncodeWriteToolSensingLowSpeed(speed));
+
+        public async Task<double> GetToolSensingMarginAsync() => await SendAndParseDoubleAsync(_protocol.EncodeReadToolSensingMargin());
+        public async Task SetToolSensingMarginAsync(double margin) => await SendAndReceiveAsync(_protocol.EncodeWriteToolSensingMargin(margin));
+
+        public async Task<double> GetToolPocketPutOffsetAsync() => await SendAndParseDoubleAsync(_protocol.EncodeReadToolPocketPutOffset());
+        public async Task SetToolPocketPutOffsetAsync(double offset) => await SendAndReceiveAsync(_protocol.EncodeWriteToolPocketPutOffset(offset));
+
+        public async Task<double[]> GetSoftLimitPositiveAsync() => await SendAndParseArrayAsync(_protocol.EncodeReadSoftLimitPositive());
+        public async Task SetSoftLimitPositiveAsync(double[] values) => await SendAndReceiveAsync(_protocol.EncodeWriteSoftLimitPositive(values));
+
+        public async Task<double[]> GetSoftLimitNegativeAsync() => await SendAndParseArrayAsync(_protocol.EncodeReadSoftLimitNegative());
+        public async Task SetSoftLimitNegativeAsync(double[] values) => await SendAndReceiveAsync(_protocol.EncodeWriteSoftLimitNegative(values));
+
+        // [3단계] 시스템 설정 구현
+        public async Task<string> GetControllerIpAsync() => await SendAndParseStringAsync(_protocol.EncodeReadControllerIp());
+        public async Task SetControllerIpAsync(string ip) => await SendAndReceiveAsync(_protocol.EncodeWriteControllerIp(ip));
+
+        public async Task<string> GetIoBoardIpAsync() => await SendAndParseStringAsync(_protocol.EncodeReadIoBoardIp());
+        public async Task SetIoBoardIpAsync(string ip) => await SendAndReceiveAsync(_protocol.EncodeWriteIoBoardIp(ip));
+
+        public async Task<string> GetFirmwareVersionAsync() => await SendAndParseStringAsync(_protocol.EncodeReadVersion());
+        public async Task SaveToFlashAsync() => await SendAndReceiveAsync(_protocol.EncodeSaveFlash());
+        public async Task RestoreToolInfoAsync(int toolNo, double length, bool updated) => await SendAndReceiveAsync(_protocol.EncodeRestoreToolInfo(toolNo, length, updated));
+
+        // 파싱 헬퍼 메서드들
+        private async Task<double[]> SendAndParseArrayAsync(MotionCommandInfo cmd)
+        {
+            var response = await SendAndReceiveAsync(cmd);
+            string resStr = Encoding.ASCII.GetString(response).Trim();
+            // 형식: [CMD] [Index] val1,val2,val3...
+            var parts = resStr.Split(new[] { ' ', ',' }, StringSplitOptions.RemoveEmptyEntries);
+            return parts.Skip(parts.Length > 6 ? 2 : 1) // CMD와 Index 건너뛰기
+                        .Select(p => double.TryParse(p, CultureInfo.InvariantCulture, out var d) ? d : 0.0)
+                        .ToArray();
+        }
+
+        private async Task<double> SendAndParseDoubleAsync(MotionCommandInfo cmd)
+        {
+            var response = await SendAndReceiveAsync(cmd);
+            string resStr = Encoding.ASCII.GetString(response).Trim();
+            var parts = resStr.Split(' ');
+            return parts.Length > 1 && double.TryParse(parts[1], CultureInfo.InvariantCulture, out var d) ? d : 0.0;
+        }
+
+        private async Task<int> SendAndParseIntAsync(MotionCommandInfo cmd)
+        {
+            var response = await SendAndReceiveAsync(cmd);
+            string resStr = Encoding.ASCII.GetString(response).Trim();
+            var parts = resStr.Split(' ');
+            return parts.Length > 1 && int.TryParse(parts[1], out var i) ? i : 0;
+        }
+
+        private async Task<string> SendAndParseStringAsync(MotionCommandInfo cmd)
+        {
+            var response = await SendAndReceiveAsync(cmd);
+            string resStr = Encoding.ASCII.GetString(response).Trim();
+            var parts = resStr.Split(new[] { ' ' }, 2);
+            return parts.Length > 1 ? parts[1] : resStr;
         }
 
         public async Task ErrorResetAsync()
