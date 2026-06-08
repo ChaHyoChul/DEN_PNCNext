@@ -51,6 +51,15 @@ namespace PncNext.Infrastructure.Motion.Services
             return _channels.Values.First();
         }
 
+        // [안전 로직] 장비가 구동 중인지 체크
+        private void EnsureMachineIsReady()
+        {
+            if (_stateStore.PaState.ControllerState == MotionStatus.Running)
+            {
+                throw new InvalidOperationException("장비가 현재 동작 중(Running)입니다. 명령을 처리할 수 없습니다.");
+            }
+        }
+
         public async Task StopAsync(int mode)
         {
             await GetChannel("CMD").StopAsync(mode);
@@ -58,11 +67,13 @@ namespace PncNext.Infrastructure.Motion.Services
 
         public async Task SetServoAsync(bool on)
         {
+            // 서보 제어는 이동 중이라도 가능해야 할 수도 있으나, 보통은 정지 상태에서 수행
             await GetChannel("CMD").SetServoAsync(on);
         }
 
         public async Task StartJogAsync(int axis, int direction)
         {
+            EnsureMachineIsReady();
             await GetChannel("CMD").StartJogAsync(axis, direction);
         }
 
@@ -130,6 +141,48 @@ namespace PncNext.Infrastructure.Motion.Services
         public async Task SaveToFlashAsync() => await GetChannel("CMD").SaveToFlashAsync();
         public async Task RestoreToolInfoAsync(int toolNo, double length, bool updated) => await GetChannel("CMD").RestoreToolInfoAsync(toolNo, length, updated);
 
+        // [2.17, 2.18] 자동 보정 및 설정 연동
+        public async Task StartMeasureAsync(int axisNo, double inPitch, double outPitch, int speed, int count, double maxDist, double offset)
+        {
+            EnsureMachineIsReady();
+            await GetChannel("CMD").StartMeasureAsync(axisNo, inPitch, outPitch, speed, count, maxDist, offset);
+        }
+
+        public async Task<double> GetMeasureResultAsync()
+        {
+            var result = await GetChannel("CMD").GetMeasureResultAsync();
+            _stateStore.PaState.LastMeasureResult = result;
+            _stateStore.NotifyStateChanged("PA");
+            return result;
+        }
+
+        public async Task SetupSuhoAsync() => await GetChannel("CMD").SetupSuhoAsync();
+        public async Task SetupSabhoAsync() => await GetChannel("CMD").SetupSabhoAsync();
+        public async Task SetupSorzAsync() => await GetChannel("CMD").SetupSorzAsync();
+        public async Task SetDiskThicknessAsync(double thickness) => await GetChannel("CMD").SetDiskThicknessAsync(thickness);
+        public async Task SetM28TypeAsync(int type) => await GetChannel("CMD").SetM28TypeAsync(type);
+        
+        public async Task<int> GetM28TypeAsync()
+        {
+            var type = await GetChannel("CMD").GetM28TypeAsync();
+            _stateStore.PaState.M28Type = type;
+            _stateStore.NotifyStateChanged("PA");
+            return type;
+        }
+
+        public async Task ResetHomingStatusAsync() => await GetChannel("CMD").ResetHomingStatusAsync();
+        public async Task SetAirParametersAsync(int usingAir, int interval, int usingPurge, int purgeInterval) => await GetChannel("CMD").SetAirParametersAsync(usingAir, interval, usingPurge, purgeInterval);
+        public async Task SetWaterFlowParametersAsync(int usingWater, int startTimeout, int sensingTimeout) => await GetChannel("CMD").SetWaterFlowParametersAsync(usingWater, startTimeout, sensingTimeout);
+        public async Task SetPurgeAirHoldTimeAsync(int holdTime) => await GetChannel("CMD").SetPurgeAirHoldTimeAsync(holdTime);
+        
+        public async Task<int> GetPurgeAirHoldTimeAsync()
+        {
+            var holdTime = await GetChannel("CMD").GetPurgeAirHoldTimeAsync();
+            _stateStore.PaState.PurgeAirHoldTime = holdTime;
+            _stateStore.NotifyStateChanged("PA");
+            return holdTime;
+        }
+
         public async Task ErrorResetAsync()
         {
             await GetChannel("CMD").ErrorResetAsync();
@@ -142,6 +195,7 @@ namespace PncNext.Infrastructure.Motion.Services
 
         public async Task HomeAsync()
         {
+            EnsureMachineIsReady();
             await GetChannel("CMD").HomeAsync();
         }
 
@@ -162,52 +216,31 @@ namespace PncNext.Infrastructure.Motion.Services
 
         public async Task MdaAsync(string gcode)
         {
+            EnsureMachineIsReady();
             await GetChannel("CMD").MdaAsync(gcode);
         }
 
         public async Task MoveIncrementalAsync(double? x, double? y, double? z, double? a, double? b)
         {
-            // MMI: 입력되지 않은 축은 0으로 설정하여 이동하지 않도록 함
-            x ??= 0;
-            y ??= 0;
-            z ??= 0;
-            a ??= 0;
-            b ??= 0;
+            EnsureMachineIsReady();
+            x ??= 0; y ??= 0; z ??= 0; a ??= 0; b ??= 0;
             await GetChannel("CMD").MoveIncrementalAsync(x, y, z, a, b);
         }
 
         public async Task MoveAbsoluteAsync(double? x, double? y, double? z, double? a, double? b)
         {
-            // MMA: 입력되지 않은 축은 현재 위치를 입력하여 해당 축이 이동하지 않도록 함
+            EnsureMachineIsReady();
             var currentPos = _stateStore.PaState.Position;
-            x ??= currentPos[0];
-            y ??= currentPos[1];
-            z ??= currentPos[2];
-            a ??= currentPos[3];
-            b ??= currentPos[4];
+            x ??= currentPos[0]; y ??= currentPos[1]; z ??= currentPos[2]; a ??= currentPos[3]; b ??= currentPos[4];
             await GetChannel("CMD").MoveAbsoluteAsync(x, y, z, a, b);
         }
 
         public async Task<MotionStatus> GetStatusAsync()
         {
             var channel = GetChannel("STS");
-            
-            if (channel.IsFaulted)
-            {
-                UpdateStoreToNotConnected();
-                return MotionStatus.NotConnected;
-            }
-
-            try 
-            {
-                await channel.ReadFullStatusAsync();
-                return _stateStore.PaState.ControllerState;
-            }
-            catch (Exception)
-            {
-                UpdateStoreToNotConnected();
-                return MotionStatus.NotConnected;
-            }
+            if (channel.IsFaulted) { UpdateStoreToNotConnected(); return MotionStatus.NotConnected; }
+            try { await channel.ReadFullStatusAsync(); return _stateStore.PaState.ControllerState; }
+            catch (Exception) { UpdateStoreToNotConnected(); return MotionStatus.NotConnected; }
         }
 
         private void UpdateStoreToNotConnected()
@@ -221,10 +254,7 @@ namespace PncNext.Infrastructure.Motion.Services
 
         public void Dispose()
         {
-            foreach (var channel in _channels.Values)
-            {
-                channel.MessageReceived -= OnMessageReceived;
-            }
+            foreach (var channel in _channels.Values) { channel.MessageReceived -= OnMessageReceived; }
         }
     }
 }

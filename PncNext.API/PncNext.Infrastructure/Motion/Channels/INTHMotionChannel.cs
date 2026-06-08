@@ -63,6 +63,21 @@ namespace PncNext.Infrastructure.Motion.Channels
         public async Task SaveToFlashAsync() { }
         public async Task RestoreToolInfoAsync(int toolNo, double length, bool updated) { }
 
+        // [2.17, 2.18] 자동 보정 및 설정 스텁
+        public async Task StartMeasureAsync(int axisNo, double inPitch, double outPitch, int speed, int count, double maxDist, double offset) { }
+        public async Task<double> GetMeasureResultAsync() => 0;
+        public async Task SetupSuhoAsync() { }
+        public async Task SetupSabhoAsync() { }
+        public async Task SetupSorzAsync() { }
+        public async Task SetDiskThicknessAsync(double thickness) { }
+        public async Task SetM28TypeAsync(int type) { }
+        public async Task<int> GetM28TypeAsync() => 0;
+        public async Task ResetHomingStatusAsync() { }
+        public async Task SetAirParametersAsync(int usingAir, int interval, int usingPurge, int purgeInterval) { }
+        public async Task SetWaterFlowParametersAsync(int usingWater, int startTimeout, int sensingTimeout) { }
+        public async Task SetPurgeAirHoldTimeAsync(int holdTime) { }
+        public async Task<int> GetPurgeAirHoldTimeAsync() => 0;
+
         public async Task ErrorResetAsync()
         {
             await SendAndReceiveAsync(_protocol.EncodeErrorReset());

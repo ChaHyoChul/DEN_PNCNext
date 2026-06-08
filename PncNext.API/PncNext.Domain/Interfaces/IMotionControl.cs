@@ -105,6 +105,21 @@ namespace PncNext.Domain.Interfaces
         Task SaveToFlashAsync();
         Task RestoreToolInfoAsync(int toolNo, double length, bool updated);
 
+        // [2.17, 2.18] 자동 보정 및 설정 변경
+        Task StartMeasureAsync(int axisNo, double inPitch, double outPitch, int speed, int count, double maxDist, double offset);
+        Task<double> GetMeasureResultAsync();
+        Task SetupSuhoAsync();
+        Task SetupSabhoAsync();
+        Task SetupSorzAsync();
+        Task SetDiskThicknessAsync(double thickness);
+        Task SetM28TypeAsync(int type);
+        Task<int> GetM28TypeAsync();
+        Task ResetHomingStatusAsync();
+        Task SetAirParametersAsync(int usingAir, int interval, int usingPurge, int purgeInterval);
+        Task SetWaterFlowParametersAsync(int usingWater, int startTimeout, int sensingTimeout);
+        Task SetPurgeAirHoldTimeAsync(int holdTime);
+        Task<int> GetPurgeAirHoldTimeAsync();
+
         /// <summary>
         /// 에러 클리어 합니다 
         /// </summary>

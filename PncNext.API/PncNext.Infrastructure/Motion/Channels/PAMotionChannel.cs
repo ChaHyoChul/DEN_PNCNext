@@ -52,9 +52,7 @@ namespace PncNext.Infrastructure.Motion.Channels
         {
             var response = await SendAndReceiveAsync(_protocol.EncodeGetJogSpeed());
             if (response == null || response.Length == 0) return 0;
-            
             string resStr = Encoding.ASCII.GetString(response).Trim();
-            // RJSS [value] 형식 가정
             var parts = resStr.Split(' ', ',');
             if (parts.Length > 1 && int.TryParse(parts[1], out int speed)) return speed;
             return 0;
@@ -109,14 +107,43 @@ namespace PncNext.Infrastructure.Motion.Channels
         public async Task SaveToFlashAsync() => await SendAndReceiveAsync(_protocol.EncodeSaveFlash());
         public async Task RestoreToolInfoAsync(int toolNo, double length, bool updated) => await SendAndReceiveAsync(_protocol.EncodeRestoreToolInfo(toolNo, length, updated));
 
+        // [2.17, 2.18] 자동 보정 및 설정 상세 구현
+        public async Task StartMeasureAsync(int axisNo, double inPitch, double outPitch, int speed, int count, double maxDist, double offset)
+        {
+            await SendAndReceiveAsync(_protocol.EncodeMeasure(axisNo, inPitch, outPitch, speed, count, maxDist, offset));
+        }
+
+        public async Task<double> GetMeasureResultAsync() => await SendAndParseDoubleAsync(_protocol.EncodeGetMeasureResult());
+        public async Task SetupSuhoAsync() => await SendAndReceiveAsync(_protocol.EncodeSetupSuho());
+        public async Task SetupSabhoAsync() => await SendAndReceiveAsync(_protocol.EncodeSetupSabho());
+        public async Task SetupSorzAsync() => await SendAndReceiveAsync(_protocol.EncodeSetupSorz());
+        public async Task SetDiskThicknessAsync(double thickness) => await SendAndReceiveAsync(_protocol.EncodeSetDiskThickness(thickness));
+        
+        public async Task SetM28TypeAsync(int type) => await SendAndReceiveAsync(_protocol.EncodeSetM28Type(type));
+        public async Task<int> GetM28TypeAsync() => await SendAndParseIntAsync(_protocol.EncodeGetM28Type());
+
+        public async Task ResetHomingStatusAsync() => await SendAndReceiveAsync(_protocol.EncodeResetHomingStatus());
+
+        public async Task SetAirParametersAsync(int usingAir, int interval, int usingPurge, int purgeInterval)
+        {
+            await SendAndReceiveAsync(_protocol.EncodeSetAirParameters(usingAir, interval, usingPurge, purgeInterval));
+        }
+
+        public async Task SetWaterFlowParametersAsync(int usingWater, int startTimeout, int sensingTimeout)
+        {
+            await SendAndReceiveAsync(_protocol.EncodeSetWaterFlowParameters(usingWater, startTimeout, sensingTimeout));
+        }
+
+        public async Task SetPurgeAirHoldTimeAsync(int holdTime) => await SendAndReceiveAsync(_protocol.EncodeSetPurgeAirHoldTime(holdTime));
+        public async Task<int> GetPurgeAirHoldTimeAsync() => await SendAndParseIntAsync(_protocol.EncodeReadPurgeAirHoldTime());
+
         // 파싱 헬퍼 메서드들
         private async Task<double[]> SendAndParseArrayAsync(MotionCommandInfo cmd)
         {
             var response = await SendAndReceiveAsync(cmd);
             string resStr = Encoding.ASCII.GetString(response).Trim();
-            // 형식: [CMD] [Index] val1,val2,val3...
             var parts = resStr.Split(new[] { ' ', ',' }, StringSplitOptions.RemoveEmptyEntries);
-            return parts.Skip(parts.Length > 6 ? 2 : 1) // CMD와 Index 건너뛰기
+            return parts.Skip(parts.Length > 6 ? 2 : 1)
                         .Select(p => double.TryParse(p, CultureInfo.InvariantCulture, out var d) ? d : 0.0)
                         .ToArray();
         }
@@ -194,7 +221,7 @@ namespace PncNext.Infrastructure.Motion.Channels
         public async Task<MotionStatus> GetStatusAsync()
         {
             await ReadFullStatusAsync();
-            return MotionStatus.Ready; // 상위 서비스에서 StateStore를 통해 판단
+            return MotionStatus.Ready;
         }
 
         public async Task<byte[]> ReadFullStatusAsync()
@@ -213,7 +240,6 @@ namespace PncNext.Infrastructure.Motion.Channels
             return await ReadFullStatusAsync();
         }
 
-        // PA 전용: 응답 데이터를 기반으로 상태 객체 업데이트
         public void UpdateState(byte[] data, PAMotionControllerState state)
         {
             _protocol.UpdateStateFromResponse(data, state);

@@ -63,6 +63,21 @@ namespace PncNext.Infrastructure.Motion.Protocols.PA
         public const string CMD_SAVEFLASH = "SAVEFLASH";
         public const string CMD_RND_STIN = "RND_STIN";
 
+        // [2.17, 2.18] 자동 보정 및 설정 변경
+        public const string CMD_DO_MEASURE = "DO_MASURE";
+        public const string CMD_GET_MEASURE_RESULT = "GET_MASURE_RESULT";
+        public const string CMD_RND_SUHO = "RND_SUHO";
+        public const string CMD_RND_SABHO = "RND_SABHO";
+        public const string CMD_SORZ = "SORZ";
+        public const string CMD_WDSSZ = "WDSSZ";
+        public const string CMD_SWVF = "SWVF";
+        public const string CMD_GWVF = "GWVF";
+        public const string CMD_FZS = "FZS";
+        public const string CMD_SALF = "SALF";
+        public const string CMD_SFSF = "SFSF";
+        public const string CMD_WPAR = "WPAR";
+        public const string CMD_RPAR = "RPAR";
+
         // 명령별 기본 타임아웃 설정 (밀리초)
         private readonly Dictionary<string, int> _commandTimeouts = new()
         {
@@ -98,7 +113,20 @@ namespace PncNext.Infrastructure.Motion.Protocols.PA
             { CMD_RARD, 3000 }, { CMD_WARD, 3000 },
             { CMD_RRIOADR, 3000 }, { CMD_WRIOADR, 3000 },
             { CMD_VER, 3000 }, { CMD_SAVEFLASH, 5000 },
-            { CMD_RND_STIN, 3000 }
+            { CMD_RND_STIN, 3000 },
+            { CMD_DO_MEASURE, 120000 },
+            { CMD_GET_MEASURE_RESULT, 3000 },
+            { CMD_RND_SUHO, 3000 },
+            { CMD_RND_SABHO, 3000 },
+            { CMD_SORZ, 3000 },
+            { CMD_WDSSZ, 3000 },
+            { CMD_SWVF, 3000 },
+            { CMD_GWVF, 3000 },
+            { CMD_FZS, 3000 },
+            { CMD_SALF, 3000 },
+            { CMD_SFSF, 3000 },
+            { CMD_WPAR, 3000 },
+            { CMD_RPAR, 3000 }
         };
 
         private int GetTimeout(string command) => _commandTimeouts.TryGetValue(command, out var timeout) ? timeout : 3000;
@@ -299,6 +327,40 @@ namespace PncNext.Infrastructure.Motion.Protocols.PA
             return new MotionCommandInfo { CommandKey = CMD_RND_STIN, Payload = Encoding.ASCII.GetBytes(payload), TimeoutMs = GetTimeout(CMD_RND_STIN) };
         }
 
+        // [2.17, 2.18] 자동 보정 및 설정 인코딩
+        public MotionCommandInfo EncodeMeasure(int axisNo, double inPitch, double outPitch, int speed, int count, double maxDist, double offset)
+        {
+            string payload = string.Format(CultureInfo.InvariantCulture, "{0} {1}, {2:F3}, {3:F3}, {4}, {5}, {6:F3}, {7:F3}{8}", 
+                CMD_DO_MEASURE, axisNo, inPitch, outPitch, speed, count, maxDist, offset, TERMINATOR);
+            return new MotionCommandInfo { CommandKey = CMD_DO_MEASURE, Payload = Encoding.ASCII.GetBytes(payload), TimeoutMs = GetTimeout(CMD_DO_MEASURE) };
+        }
+
+        public MotionCommandInfo EncodeGetMeasureResult() => CreateSimpleReadCommand(CMD_GET_MEASURE_RESULT);
+        public MotionCommandInfo EncodeSetupSuho() => CreateSimpleReadCommand(CMD_RND_SUHO);
+        public MotionCommandInfo EncodeSetupSabho() => CreateSimpleReadCommand(CMD_RND_SABHO);
+        public MotionCommandInfo EncodeSetupSorz() => CreateSimpleReadCommand(CMD_SORZ);
+        public MotionCommandInfo EncodeSetDiskThickness(double thickness) => CreateSingleValueWriteCommand(CMD_WDSSZ, thickness);
+        public MotionCommandInfo EncodeSetM28Type(int type) => CreateSingleValueWriteCommand(CMD_SWVF, type);
+        public MotionCommandInfo EncodeGetM28Type() => CreateSimpleReadCommand(CMD_GWVF);
+        public MotionCommandInfo EncodeResetHomingStatus() => CreateSimpleReadCommand(CMD_FZS);
+
+        public MotionCommandInfo EncodeSetAirParameters(int usingAir, int interval, int usingPurge, int purgeInterval)
+        {
+            string payload = string.Format(CultureInfo.InvariantCulture, "{0} {1}, {2}, {3}, {4}{5}", 
+                CMD_SALF, usingAir, interval, usingPurge, purgeInterval, TERMINATOR);
+            return new MotionCommandInfo { CommandKey = CMD_SALF, Payload = Encoding.ASCII.GetBytes(payload), TimeoutMs = GetTimeout(CMD_SALF) };
+        }
+
+        public MotionCommandInfo EncodeSetWaterFlowParameters(int usingWater, int startTimeout, int sensingTimeout)
+        {
+            string payload = string.Format(CultureInfo.InvariantCulture, "{0} {1}, {2}, {3}{4}", 
+                CMD_SFSF, usingWater, startTimeout, sensingTimeout, TERMINATOR);
+            return new MotionCommandInfo { CommandKey = CMD_SFSF, Payload = Encoding.ASCII.GetBytes(payload), TimeoutMs = GetTimeout(CMD_SFSF) };
+        }
+
+        public MotionCommandInfo EncodeSetPurgeAirHoldTime(int holdTime) => CreateSingleValueWriteCommand(CMD_WPAR, holdTime);
+        public MotionCommandInfo EncodeReadPurgeAirHoldTime() => CreateSimpleReadCommand(CMD_RPAR);
+
         // 공통 헬퍼 메서드들
         private MotionCommandInfo CreateSimpleReadCommand(string cmd, int? index = null)
         {
@@ -409,6 +471,19 @@ namespace PncNext.Infrastructure.Motion.Protocols.PA
                 CMD_VER => CMD_VER,
                 CMD_SAVEFLASH => CMD_SAVEFLASH,
                 CMD_RND_STIN => CMD_RND_STIN,
+                CMD_DO_MEASURE => CMD_DO_MEASURE,
+                CMD_GET_MEASURE_RESULT => CMD_GET_MEASURE_RESULT,
+                CMD_RND_SUHO => CMD_RND_SUHO,
+                CMD_RND_SABHO => CMD_RND_SABHO,
+                CMD_SORZ => CMD_SORZ,
+                CMD_WDSSZ => CMD_WDSSZ,
+                CMD_SWVF => CMD_SWVF,
+                CMD_GWVF => CMD_GWVF,
+                CMD_FZS => CMD_FZS,
+                CMD_SALF => CMD_SALF,
+                CMD_SFSF => CMD_SFSF,
+                CMD_WPAR => CMD_WPAR,
+                CMD_RPAR => CMD_RPAR,
                 _ => firstWord
             };
         }

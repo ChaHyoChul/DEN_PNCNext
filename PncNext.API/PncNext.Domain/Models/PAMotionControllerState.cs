@@ -56,5 +56,11 @@ namespace PncNext.Domain.Models
         // 제어기 응답 에러 정보
         public string LastErrorCode { get; set; } = string.Empty; // 예: "E9000"
         public string LastErrorMessage { get; set; } = string.Empty; // 예: "ERROR_NETWORK"
+
+        // 신규 추가된 설정 및 결과 데이터
+        public double LastMeasureResult { get; set; }
+        public string FirmwareVersion { get; set; } = string.Empty;
+        public int M28Type { get; set; } // 0:WET, 1:DRY, 2:Z_WET
+        public int PurgeAirHoldTime { get; set; }
     }
 }

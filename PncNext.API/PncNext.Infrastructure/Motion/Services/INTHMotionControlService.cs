@@ -124,6 +124,36 @@ namespace PncNext.Infrastructure.Motion.Services
         public async Task SaveToFlashAsync() => await GetChannel("CMD").SaveToFlashAsync();
         public async Task RestoreToolInfoAsync(int toolNo, double length, bool updated) => await GetChannel("CMD").RestoreToolInfoAsync(toolNo, length, updated);
 
+        // [2.17, 2.18] 자동 보정 및 설정 상세 구현
+        public async Task StartMeasureAsync(int axisNo, double inPitch, double outPitch, int speed, int count, double maxDist, double offset)
+        {
+            await GetChannel("CMD").StartMeasureAsync(axisNo, inPitch, outPitch, speed, count, maxDist, offset);
+        }
+
+        public async Task<double> GetMeasureResultAsync() => await GetChannel("CMD").GetMeasureResultAsync();
+        public async Task SetupSuhoAsync() => await GetChannel("CMD").SetupSuhoAsync();
+        public async Task SetupSabhoAsync() => await GetChannel("CMD").SetupSabhoAsync();
+        public async Task SetupSorzAsync() => await GetChannel("CMD").SetupSorzAsync();
+        public async Task SetDiskThicknessAsync(double thickness) => await GetChannel("CMD").SetDiskThicknessAsync(thickness);
+        
+        public async Task SetM28TypeAsync(int type) => await GetChannel("CMD").SetM28TypeAsync(type);
+        public async Task<int> GetM28TypeAsync() => await GetChannel("CMD").GetM28TypeAsync();
+
+        public async Task ResetHomingStatusAsync() => await GetChannel("CMD").ResetHomingStatusAsync();
+
+        public async Task SetAirParametersAsync(int usingAir, int interval, int usingPurge, int purgeInterval)
+        {
+            await GetChannel("CMD").SetAirParametersAsync(usingAir, interval, usingPurge, purgeInterval);
+        }
+
+        public async Task SetWaterFlowParametersAsync(int usingWater, int startTimeout, int sensingTimeout)
+        {
+            await GetChannel("CMD").SetWaterFlowParametersAsync(usingWater, startTimeout, sensingTimeout);
+        }
+
+        public async Task SetPurgeAirHoldTimeAsync(int holdTime) => await GetChannel("CMD").SetPurgeAirHoldTimeAsync(holdTime);
+        public async Task<int> GetPurgeAirHoldTimeAsync() => await GetChannel("CMD").GetPurgeAirHoldTimeAsync();
+
         public async Task ErrorResetAsync()
         {
             await GetChannel("CMD").ErrorResetAsync();
@@ -171,9 +201,6 @@ namespace PncNext.Infrastructure.Motion.Services
 
         public async Task MoveAbsoluteAsync(double? x, double? y, double? z, double? a, double? b)
         {
-            // INTH 제어기용 상태 저장소 프로퍼티가 아직 명확하지 않으므로 임시로 0 처리하거나
-            // 추후 INTHState가 정의되면 해당 값을 참조하도록 수정 필요.
-            // 현재는 인터페이스 일관성을 위해 0으로 기본값 설정.
             x ??= 0;
             y ??= 0;
             z ??= 0;
@@ -185,21 +212,9 @@ namespace PncNext.Infrastructure.Motion.Services
         public async Task<MotionStatus> GetStatusAsync()
         {
             var channel = GetChannel("STS");
-            
-            if (channel.IsFaulted)
-            {
-                return MotionStatus.NotConnected;
-            }
-
-            try 
-            {
-                await channel.ReadFullStatusAsync();
-                return MotionStatus.NotConnected; // 임시
-            }
-            catch (Exception)
-            {
-                return MotionStatus.NotConnected;
-            }
+            if (channel.IsFaulted) { return MotionStatus.NotConnected; }
+            try { await channel.ReadFullStatusAsync(); return MotionStatus.NotConnected; }
+            catch (Exception) { return MotionStatus.NotConnected; }
         }
 
         public void Dispose()
