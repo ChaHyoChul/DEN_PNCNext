@@ -30,13 +30,13 @@ namespace PncNext.API.Controllers
         }
 
         /// <summary>
-        /// 바코드로 특정 디스크를 조회합니다.
+        /// DiskID로 특정 디스크를 조회합니다.
         /// </summary>
-        [HttpGet("{barcode}")]
-        public async Task<ActionResult<DiskInventory>> GetByBarcode(string barcode)
+        [HttpGet("{diskId}")]
+        public async Task<ActionResult<DiskInventory>> GetByDiskID(string diskId)
         {
-            var disk = await _diskService.GetDiskByBarcodeAsync(barcode);
-            if (disk == null) return NotFound("해당 바코드의 자재 정보를 찾을 수 없습니다.");
+            var disk = await _diskService.GetDiskByDiskIDAsync(diskId);
+            if (disk == null) return NotFound("해당 DiskID의 자재 정보를 찾을 수 없습니다.");
             return Ok(disk);
         }
 
@@ -49,7 +49,7 @@ namespace PncNext.API.Controllers
             try
             {
                 var registered = await _diskService.RegisterDiskAsync(disk);
-                return CreatedAtAction(nameof(GetByBarcode), new { barcode = registered.DiskBarcode }, registered);
+                return CreatedAtAction(nameof(GetByDiskID), new { diskId = registered.DiskID }, registered);
             }
             catch (InvalidOperationException ex)
             {

@@ -10,9 +10,9 @@ namespace PncNext.Domain.Interfaces
     public interface IDiskManagementService
     {
         /// <summary>
-        /// 바코드를 통해 특정 디스크 정보를 조회합니다.
+        /// DiskID를 통해 특정 디스크 정보를 조회합니다.
         /// </summary>
-        Task<DiskInventory?> GetDiskByBarcodeAsync(string barcode);
+        Task<DiskInventory?> GetDiskByDiskIDAsync(string diskId);
 
         /// <summary>
         /// 현재 등록된 모든 디스크 목록을 조회합니다.

@@ -21,6 +21,7 @@ builder.Services.AddSingleton<SharedMemoryService>();
 
 // 2.1. 도메인 로직 서비스 등록
 builder.Services.AddScoped<IDiskManagementService, DiskManagementService>();
+builder.Services.AddScoped<INcFileService, NcFileService>();
 
 // 3. 동적 채널 및 컨트롤 서비스 팩토리 등록
 builder.Services.AddSingleton<IMotionControl>(sp =>

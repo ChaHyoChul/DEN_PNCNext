@@ -56,7 +56,7 @@ namespace PncNext.Infrastructure.Persistence
             modelBuilder.Entity<DiskInventory>(entity =>
             {
                 entity.HasKey(e => e.Id);
-                entity.Property(e => e.DiskBarcode).IsRequired().HasMaxLength(100);
+                entity.Property(e => e.DiskID).IsRequired().HasMaxLength(100);
                 entity.Property(e => e.MaterialType).HasMaxLength(50);
             });
 

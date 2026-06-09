@@ -2,10 +2,13 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.EntityFrameworkCore;
 using System;
 using System.IO;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Text.RegularExpressions;
 using PncNext.Domain.Entities;
 using PncNext.Infrastructure.Persistence;
 
@@ -17,6 +20,9 @@ namespace PncNext.API.Services
         private readonly IServiceScopeFactory _scopeFactory;
         private readonly string _watchFolderPath;
         private FileSystemWatcher? _watcher;
+        
+        // 정규식: 파일명 시작이 D로 시작하고 숫자가 온 뒤 하이픈(-)이 오는 패턴 (예: D0005-...)
+        private static readonly Regex DiskIdRegex = new Regex(@"^D(\d+)-", RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
         public NcFileWatcherService(
             ILogger<NcFileWatcherService> logger,
@@ -123,11 +129,39 @@ namespace PncNext.API.Services
                         ArchiveExistingFile(existingFile, dbContext);
                     }
 
-                    // 신규 파일 엔티티 생성
+                    // 신규 파일 엔티티 생성을 위한 분석
+                    var newStatus = NcValidationStatus.Ready;
+                    int? targetDiskId = null;
+
+                    // 1. 파일명에서 DiskID 추출 (D0000- 패턴)
+                    var match = DiskIdRegex.Match(fileName);
+                    if (match.Success)
+                    {
+                        if (int.TryParse(match.Groups[1].Value, out int diskId))
+                        {
+                            targetDiskId = diskId;
+                            // 2. DB에서 실제 디스크 존재 여부 확인
+                            var diskExists = await dbContext.DiskInventories.AnyAsync(d => d.Id == diskId);
+                            if (!diskExists)
+                            {
+                                newStatus = NcValidationStatus.InvalidDiskId;
+                                _logger.LogWarning($"[분석] 파일명에 디스크 ID({diskId})가 있으나 DB에 등록되지 않았습니다: {fileName}");
+                            }
+                        }
+                    }
+                    else
+                    {
+                        newStatus = NcValidationStatus.MissingDiskInfo;
+                        _logger.LogWarning($"[분석] 파일명에 디스크 식별 접두사가 없습니다: {fileName}");
+                    }
+
+                    // 3. 신규 파일 엔티티 등록
                     var newFileEntry = new NcFileInventory
                     {
                         FileName = fileName,
                         FilePath = filePath,
+                        Status = newStatus,
+                        TargetDiskId = targetDiskId,
                         IsValidated = false,
                         IsArchived = false,
                         IsDeleted = false
@@ -136,7 +170,7 @@ namespace PncNext.API.Services
                     dbContext.NcFileInventories.Add(newFileEntry);
                     await dbContext.SaveChangesAsync(); // 새 파일 ID 발급
                     
-                    _logger.LogInformation($"DB 등록 완료: {fileName} (신규 ID: {newFileEntry.Id})");
+                    _logger.LogInformation($"DB 등록 완료: {fileName} (ID: {newFileEntry.Id}, Status: {newFileEntry.Status})");
 
                     // 덮어쓰기된 재가공 파일이라면, 초기 JobHistory를 연결용으로 임시 생성 (선택 사항)
                     // 보통은 가공 시작 시점에 JobHistory를 생성하지만, 이력 연결을 명확히 하기 위해
