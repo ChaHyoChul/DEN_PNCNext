@@ -5,6 +5,7 @@ using PncNext.Infrastructure.Motion.Services;
 using PncNext.Infrastructure.Motion.Transports;
 using PncNext.Infrastructure.Motion.Channels;
 using PncNext.Infrastructure.SharedMemory;
+using PncNext.Infrastructure.Services;
 using PncNext.API.Services;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -17,6 +18,9 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 builder.Services.AddSingleton<IMotionStateStore, MotionStateStore>();
 builder.Services.AddSingleton<IMotionConfigStore, MotionConfigStore>();
 builder.Services.AddSingleton<SharedMemoryService>();
+
+// 2.1. 도메인 로직 서비스 등록
+builder.Services.AddScoped<IDiskManagementService, DiskManagementService>();
 
 // 3. 동적 채널 및 컨트롤 서비스 팩토리 등록
 builder.Services.AddSingleton<IMotionControl>(sp =>
