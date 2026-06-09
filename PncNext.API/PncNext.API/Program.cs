@@ -68,6 +68,9 @@ builder.Services.AddSingleton<IMotionControl>(sp =>
 // 4. 백그라운드 상태 폴링 서비스 등록
 builder.Services.AddHostedService<MotionStatusBackgroundService>();
 
+// 5. NC 파일 자동 감지 서비스 등록
+builder.Services.AddHostedService<NcFileWatcherService>();
+
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
