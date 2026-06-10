@@ -20,6 +20,7 @@ builder.Services.AddSingleton<IMotionConfigStore, MotionConfigStore>();
 builder.Services.AddSingleton<SharedMemoryService>();
 
 // 2.1. 도메인 로직 서비스 등록
+builder.Services.AddSingleton<ISignalRService, SignalRServiceStub>();
 builder.Services.AddScoped<IDiskManagementService, DiskManagementService>();
 builder.Services.AddScoped<INcFileService, NcFileService>();
 

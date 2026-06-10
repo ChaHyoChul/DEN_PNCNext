@@ -51,13 +51,30 @@ namespace PncNext.Infrastructure.Persistence
                 entity.HasKey(e => e.Id);
                 entity.Property(e => e.FileName).IsRequired().HasMaxLength(255);
                 entity.Property(e => e.FilePath).IsRequired().HasMaxLength(1000);
+                
+                // Status Enum을 DB에 저장할 때 정수가 아닌 문자열로 변환하여 저장
+                entity.Property(e => e.Status)
+                      .HasConversion<string>()
+                      .HasMaxLength(50);
+                      
+                entity.Property(e => e.TargetDiskName).HasMaxLength(100);
             });
 
             modelBuilder.Entity<DiskInventory>(entity =>
             {
-                entity.HasKey(e => e.Id);
-                entity.Property(e => e.DiskID).IsRequired().HasMaxLength(100);
+                entity.HasKey(e => e.Seq);
+                entity.Property(e => e.DiskId).IsRequired();
+                entity.Property(e => e.DiskName).IsRequired().HasMaxLength(50);
                 entity.Property(e => e.MaterialType).HasMaxLength(50);
+                
+                // 부분 고유 인덱스 (Filtered Unique Index): 삭제되지 않은 활성 디스크 간에만 고유성 보장
+                entity.HasIndex(e => e.DiskId)
+                      .IsUnique()
+                      .HasFilter("\"IsDeleted\" = 0");
+                      
+                entity.HasIndex(e => e.DiskName)
+                      .IsUnique()
+                      .HasFilter("\"IsDeleted\" = 0");
             });
 
             modelBuilder.Entity<JobHistory>(entity =>
@@ -72,7 +89,7 @@ namespace PncNext.Infrastructure.Persistence
 
                 entity.HasOne(e => e.Disk)
                       .WithMany()
-                      .HasForeignKey(e => e.DiskId)
+                      .HasForeignKey(e => e.DiskSeq)
                       .OnDelete(DeleteBehavior.Restrict);
             });
         }

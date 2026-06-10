@@ -62,13 +62,16 @@ namespace PncNext.Infrastructure.Migrations
 
             modelBuilder.Entity("PncNext.Domain.Entities.DiskInventory", b =>
                 {
-                    b.Property<int>("Id")
+                    b.Property<int>("Seq")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER");
 
-                    b.Property<string>("DiskID")
+                    b.Property<int>("DiskId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("DiskName")
                         .IsRequired()
-                        .HasMaxLength(100)
+                        .HasMaxLength(50)
                         .HasColumnType("TEXT");
 
                     b.Property<bool>("IsDeleted")
@@ -86,7 +89,15 @@ namespace PncNext.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("TEXT");
 
-                    b.HasKey("Id");
+                    b.HasKey("Seq");
+
+                    b.HasIndex("DiskId")
+                        .IsUnique()
+                        .HasFilter("\"IsDeleted\" = 0");
+
+                    b.HasIndex("DiskName")
+                        .IsUnique()
+                        .HasFilter("\"IsDeleted\" = 0");
 
                     b.ToTable("DiskInventories");
                 });
@@ -97,7 +108,7 @@ namespace PncNext.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER");
 
-                    b.Property<int>("DiskId")
+                    b.Property<int>("DiskSeq")
                         .HasColumnType("INTEGER");
 
                     b.Property<DateTime?>("EndTime")
@@ -125,7 +136,7 @@ namespace PncNext.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("DiskId");
+                    b.HasIndex("DiskSeq");
 
                     b.HasIndex("NcFileId");
 
@@ -206,6 +217,9 @@ namespace PncNext.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER");
 
+                    b.Property<int?>("DiskSeq")
+                        .HasColumnType("INTEGER");
+
                     b.Property<string>("FileName")
                         .IsRequired()
                         .HasMaxLength(255)
@@ -225,11 +239,14 @@ namespace PncNext.Infrastructure.Migrations
                     b.Property<bool>("IsValidated")
                         .HasColumnType("INTEGER");
 
-                    b.Property<int>("Status")
-                        .HasColumnType("INTEGER");
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("TEXT");
 
-                    b.Property<int?>("TargetDiskId")
-                        .HasColumnType("INTEGER");
+                    b.Property<string>("TargetDiskName")
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
 
                     b.HasKey("Id");
 
@@ -251,7 +268,7 @@ namespace PncNext.Infrastructure.Migrations
                 {
                     b.HasOne("PncNext.Domain.Entities.DiskInventory", "Disk")
                         .WithMany()
-                        .HasForeignKey("DiskId")
+                        .HasForeignKey("DiskSeq")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 

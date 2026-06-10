@@ -115,7 +115,7 @@ namespace PncNext.Infrastructure.Services
             }
         }
 
-        public async Task<bool> UpdateNcFileDiskMappingAsync(int ncFileId, int newDiskId)
+        public async Task<bool> UpdateNcFileDiskMappingAsync(int ncFileId, int newDiskSeq)
         {
             var ncFile = await _dbContext.NcFileInventories.FindAsync(ncFileId);
             if (ncFile == null) return false;
@@ -128,8 +128,10 @@ namespace PncNext.Infrastructure.Services
                 throw new InvalidOperationException("현재 가공 상태인 파일의 디스크 정보는 변경할 수 없습니다.");
             }
 
-            var diskExists = await _dbContext.DiskInventories.AnyAsync(d => d.Id == newDiskId);
-            if (!diskExists) throw new ArgumentException("존재하지 않는 디스크 식별자입니다.");
+            var targetDisk = await _dbContext.DiskInventories.FindAsync(newDiskSeq);
+            if (targetDisk == null) throw new ArgumentException("존재하지 않는 디스크 대리키입니다.");
+
+            string targetDiskName = targetDisk.DiskName;
 
             // 물리적 파일 이름 동기화 (Rename)
             string oldPath = ncFile.FilePath;
@@ -138,7 +140,7 @@ namespace PncNext.Infrastructure.Services
             
             // 기존 D0000- 접두사 제거 후 새 접두사 추가
             string pureFileName = DiskIdPrefixRegex.Replace(oldFileName, "");
-            string newFileName = $"D{newDiskId:D4}-{pureFileName}";
+            string newFileName = $"{targetDiskName}-{pureFileName}";
             string newPath = Path.Combine(directory ?? string.Empty, newFileName);
 
             if (File.Exists(oldPath) && oldPath != newPath)
@@ -151,8 +153,9 @@ namespace PncNext.Infrastructure.Services
                 ncFile.FileName = newFileName;
             }
 
-            ncFile.TargetDiskId = newDiskId;
+            ncFile.TargetDiskName = targetDiskName;
             ncFile.Status = NcValidationStatus.Ready;
+            ncFile.DiskSeq = targetDisk.Seq;
 
             await _dbContext.SaveChangesAsync();
             return true;

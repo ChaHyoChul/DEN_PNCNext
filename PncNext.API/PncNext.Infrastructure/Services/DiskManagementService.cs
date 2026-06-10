@@ -10,16 +10,18 @@ namespace PncNext.Infrastructure.Services
     public class DiskManagementService : IDiskManagementService
     {
         private readonly AppDbContext _dbContext;
+        private readonly ISignalRService _signalRService;
 
-        public DiskManagementService(AppDbContext dbContext)
+        public DiskManagementService(AppDbContext dbContext, ISignalRService signalRService)
         {
             _dbContext = dbContext;
+            _signalRService = signalRService;
         }
 
-        public async Task<DiskInventory?> GetDiskByDiskIDAsync(string diskId)
+        public async Task<DiskInventory?> GetDiskByDiskIdAsync(int diskId)
         {
             return await _dbContext.DiskInventories
-                .FirstOrDefaultAsync(d => d.DiskID == diskId);
+                .FirstOrDefaultAsync(d => d.DiskId == diskId && !d.IsDeleted);
         }
 
         public async Task<IEnumerable<DiskInventory>> GetAllDisksAsync()
@@ -31,48 +33,66 @@ namespace PncNext.Infrastructure.Services
 
         public async Task<DiskInventory> RegisterDiskAsync(DiskInventory disk)
         {
-            // 중복 DiskID 체크
-            var existing = await GetDiskByDiskIDAsync(disk.DiskID);
+            // Swagger 등 외부 입력의 기본값 오류 보정
+            disk.IsDeleted = false;
+
+            // 중복 DiskId 체크 (활성 디스크 내에서만)
+            var existing = await GetDiskByDiskIdAsync(disk.DiskId);
             if (existing != null)
             {
-                throw new InvalidOperationException($"DiskID '{disk.DiskID}'는 이미 등록된 자재입니다.");
+                throw new InvalidOperationException($"DiskId '{disk.DiskId}'는 이미 등록된 활성 자재입니다.");
             }
 
-            _dbContext.DiskInventories.Add(disk);
-            await _dbContext.SaveChangesAsync();
-
-            // 4단계: 자가 치유(Self-healing) 로직
-            // 새로 등록된 디스크 식별자(Id)를 기다리고 있던 InvalidDiskId 상태의 파일들을 검색
-            var orphanedFiles = await _dbContext.NcFileInventories
-                .Where(f => f.Status == NcValidationStatus.InvalidDiskId && f.TargetDiskId == disk.Id)
-                .ToListAsync();
-
-            if (orphanedFiles.Any())
+            using var transaction = await _dbContext.Database.BeginTransactionAsync();
+            try
             {
+                // 포맷팅 적용
+                disk.DiskName = $"D{disk.DiskId:D4}";
+
+                _dbContext.DiskInventories.Add(disk);
+                await _dbContext.SaveChangesAsync(); // 새 Seq 발급
+
+                // 자가 치유(Self-healing) 로직
+                var orphanedFiles = await _dbContext.NcFileInventories
+                    .Where(f => f.Status == NcValidationStatus.InvalidDiskId && f.TargetDiskName == disk.DiskName)
+                    .ToListAsync();
+
                 foreach (var file in orphanedFiles)
                 {
+                    file.DiskSeq = disk.Seq; // 물리 외래키 연결
                     file.Status = NcValidationStatus.Ready;
                 }
                 await _dbContext.SaveChangesAsync();
-            }
+                await transaction.CommitAsync();
 
-            return disk;
+                // 5. 실시간 멀티 클라이언트 갱신 전파 (SignalR)
+                await _signalRService.BroadcastAsync("DiskCreatedAndHealed", new { NewSeq = disk.Seq, AssignedDiskId = disk.DiskId, HealedCount = orphanedFiles.Count });
+                return disk;
+            }
+            catch
+            {
+                await transaction.RollbackAsync();
+                throw;
+            }
         }
 
-        public async Task UpdateUsedAreaAsync(int diskId, string newAreaJson)
+        public async Task UpdateUsedAreaAsync(int targetSeq, string newAreaJson)
         {
-            var disk = await _dbContext.DiskInventories.FindAsync(diskId);
+            var disk = await _dbContext.DiskInventories.FindAsync(targetSeq);
             if (disk == null) throw new KeyNotFoundException("해당 디스크를 찾을 수 없습니다.");
 
             disk.UsedAreaLayout = newAreaJson;
             await _dbContext.SaveChangesAsync();
         }
 
-        public async Task DeleteDiskAsync(int diskId)
+        public async Task DeleteDiskAsync(int targetSeq)
         {
+            var disk = await _dbContext.DiskInventories.FindAsync(targetSeq);
+            if (disk == null) return;
+
             // 1. 가드레일: 현재 해당 디스크로 가공 중인 파일이 있는지 검증
             bool isCurrentlyMilling = await _dbContext.NcFileInventories
-                .AnyAsync(n => n.TargetDiskId == diskId && n.Status == NcValidationStatus.Processing);
+                .AnyAsync(n => n.DiskSeq == targetSeq && n.Status == NcValidationStatus.Processing);
 
             if (isCurrentlyMilling)
             {
@@ -82,25 +102,25 @@ namespace PncNext.Infrastructure.Services
             using var transaction = await _dbContext.Database.BeginTransactionAsync();
             try
             {
-                // 2. 가공 대기(Ready) 상태인 파일들은 InvalidDiskId로 격리하여 상태 역전이
+                // 2. 가공 대기(Ready) 상태인 파일들은 외래키를 해제하고 InvalidDiskId로 격리
                 var readyFiles = await _dbContext.NcFileInventories
-                    .Where(n => n.TargetDiskId == diskId && n.Status == NcValidationStatus.Ready)
+                    .Where(n => n.DiskSeq == targetSeq && n.Status == NcValidationStatus.Ready)
                     .ToListAsync();
 
                 foreach (var file in readyFiles)
                 {
+                    file.DiskSeq = null; // 물리 연결 단절
                     file.Status = NcValidationStatus.InvalidDiskId;
                 }
 
                 // 3. 이력 보존: 소프트 딜리트 처리
-                var disk = await _dbContext.DiskInventories.FindAsync(diskId);
-                if (disk != null)
-                {
-                    disk.IsDeleted = true;
-                }
+                disk.IsDeleted = true;
 
                 await _dbContext.SaveChangesAsync();
                 await transaction.CommitAsync();
+
+                // 4. 실시간 이벤트 전파
+                await _signalRService.BroadcastAsync("DiskSoftDeleted", new { RemovedSeq = targetSeq, SeparatedReadyCount = readyFiles.Count });
             }
             catch
             {

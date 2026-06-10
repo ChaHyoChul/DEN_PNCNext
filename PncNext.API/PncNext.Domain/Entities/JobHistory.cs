@@ -6,7 +6,7 @@ namespace PncNext.Domain.Entities
     {
         public int Id { get; set; }
         public int NcFileId { get; set; }
-        public int DiskId { get; set; }
+        public int DiskSeq { get; set; }
         public string JobStatus { get; set; } = "Ready"; // Ready, Running, Completed, ErrorStopped, Canceled
         public DateTime StartTime { get; set; }
         public DateTime? EndTime { get; set; }

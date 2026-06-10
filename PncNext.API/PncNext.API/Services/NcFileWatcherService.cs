@@ -22,7 +22,7 @@ namespace PncNext.API.Services
         private FileSystemWatcher? _watcher;
         
         // 정규식: 파일명 시작이 D로 시작하고 숫자가 온 뒤 하이픈(-)이 오는 패턴 (예: D0005-...)
-        private static readonly Regex DiskIdRegex = new Regex(@"^D(\d+)-", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+        private static readonly Regex DiskIdRegex = new Regex(@"^(D\d+)-", RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
         public NcFileWatcherService(
             ILogger<NcFileWatcherService> logger,
@@ -131,22 +131,19 @@ namespace PncNext.API.Services
 
                     // 신규 파일 엔티티 생성을 위한 분석
                     var newStatus = NcValidationStatus.Ready;
-                    int? targetDiskId = null;
+                    string? targetDiskId = null;
 
                     // 1. 파일명에서 DiskID 추출 (D0000- 패턴)
                     var match = DiskIdRegex.Match(fileName);
                     if (match.Success)
                     {
-                        if (int.TryParse(match.Groups[1].Value, out int diskId))
+                        targetDiskId = match.Groups[1].Value.ToUpper();
+                        // 2. DB에서 실제 디스크 존재 여부 확인
+                        var diskExists = await dbContext.DiskInventories.AnyAsync(d => d.DiskName == targetDiskId);
+                        if (!diskExists)
                         {
-                            targetDiskId = diskId;
-                            // 2. DB에서 실제 디스크 존재 여부 확인
-                            var diskExists = await dbContext.DiskInventories.AnyAsync(d => d.Id == diskId);
-                            if (!diskExists)
-                            {
-                                newStatus = NcValidationStatus.InvalidDiskId;
-                                _logger.LogWarning($"[분석] 파일명에 디스크 ID({diskId})가 있으나 DB에 등록되지 않았습니다: {fileName}");
-                            }
+                            newStatus = NcValidationStatus.InvalidDiskId;
+                            _logger.LogWarning($"[분석] 파일명에 디스크 ID({targetDiskId})가 있으나 DB에 등록되지 않았습니다: {fileName}");
                         }
                     }
                     else
@@ -161,7 +158,7 @@ namespace PncNext.API.Services
                         FileName = fileName,
                         FilePath = filePath,
                         Status = newStatus,
-                        TargetDiskId = targetDiskId,
+                        TargetDiskName = targetDiskId,
                         IsValidated = false,
                         IsArchived = false,
                         IsDeleted = false
@@ -180,14 +177,14 @@ namespace PncNext.API.Services
                         var linkJob = new JobHistory
                         {
                             NcFileId = newFileEntry.Id,
-                            DiskId = existingFile != null ? dbContext.JobHistories.FirstOrDefault(j => j.Id == parentJobId)?.DiskId ?? 0 : 0,
+                            DiskSeq = existingFile != null ? dbContext.JobHistories.FirstOrDefault(j => j.Id == parentJobId)?.DiskSeq ?? 0 : 0,
                             JobStatus = "Ready",
                             StartTime = DateTime.UtcNow,
                             ParentJobId = parentJobId
                         };
                         
-                        // DiskId가 0(유효하지 않음)인 경우는 제외하고 등록
-                        if (linkJob.DiskId > 0)
+                        // DiskSeq가 0(유효하지 않음)인 경우는 제외하고 등록
+                        if (linkJob.DiskSeq > 0)
                         {
                             dbContext.JobHistories.Add(linkJob);
                             await dbContext.SaveChangesAsync();
