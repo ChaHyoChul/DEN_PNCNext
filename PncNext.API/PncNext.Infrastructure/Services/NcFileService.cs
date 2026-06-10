@@ -160,5 +160,81 @@ namespace PncNext.Infrastructure.Services
             await _dbContext.SaveChangesAsync();
             return true;
         }
+
+        public async Task<bool> ResetErrorAsync(int ncFileId)
+        {
+            var ncFile = await _dbContext.NcFileInventories.FindAsync(ncFileId);
+            if (ncFile == null) return false;
+
+            // 오직 Error 상태인 파일만 복구 가능
+            if (ncFile.Status != NcValidationStatus.Error)
+            {
+                throw new InvalidOperationException("에러 상태인 파일만 초기화할 수 있습니다.");
+            }
+
+            // 재검증: 물리 파일 존재 여부 및 디스크 매핑 확인
+            if (!File.Exists(ncFile.FilePath))
+            {
+                throw new FileNotFoundException("NC 파일이 물리적으로 존재하지 않습니다.");
+            }
+
+            if (ncFile.DiskSeq == null)
+            {
+                ncFile.Status = NcValidationStatus.MissingDiskInfo;
+            }
+            else
+            {
+                // 디스크가 여전히 존재하는지 확인
+                var diskExists = await _dbContext.DiskInventories.AnyAsync(d => d.Seq == ncFile.DiskSeq && !d.IsDeleted);
+                if (!diskExists)
+                {
+                    ncFile.Status = NcValidationStatus.InvalidDiskId;
+                }
+                else
+                {
+                    // 모든 조건 충족 시 Ready로 복구
+                    // (주의: LastErrorLine은 재시작을 위해 초기화하지 않음)
+                    ncFile.Status = NcValidationStatus.Ready;
+                }
+            }
+
+            await _dbContext.SaveChangesAsync();
+            return true;
+        }
+
+        public async Task<bool> ResetToReadyAsync(int ncFileId)
+        {
+            var ncFile = await _dbContext.NcFileInventories.FindAsync(ncFileId);
+            if (ncFile == null) return false;
+
+            // 이미 Processing 상태인 경우는 초기화 불가 (가드레일)
+            if (ncFile.Status == NcValidationStatus.Processing)
+            {
+                throw new InvalidOperationException("가공이 진행 중인 파일은 초기화할 수 없습니다.");
+            }
+
+            // 재검증: 물리 파일 존재 여부 확인
+            if (!File.Exists(ncFile.FilePath))
+            {
+                throw new FileNotFoundException("NC 파일이 물리적으로 존재하지 않습니다.");
+            }
+
+            // 상태를 Ready로 강제 전환
+            if (ncFile.DiskSeq == null)
+            {
+                ncFile.Status = NcValidationStatus.MissingDiskInfo;
+            }
+            else
+            {
+                var diskExists = await _dbContext.DiskInventories.AnyAsync(d => d.Seq == ncFile.DiskSeq && !d.IsDeleted);
+                ncFile.Status = diskExists ? NcValidationStatus.Ready : NcValidationStatus.InvalidDiskId;
+            }
+
+            // 핵심: 재가공을 위해 모든 중단점 정보 초기화
+            ncFile.LastErrorLine = null;
+
+            await _dbContext.SaveChangesAsync();
+            return true;
+        }
     }
 }

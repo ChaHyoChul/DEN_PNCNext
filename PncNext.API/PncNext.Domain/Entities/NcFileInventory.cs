@@ -13,6 +13,9 @@ namespace PncNext.Domain.Entities
         // 파일명에서 추출한 비즈니스 식별자. 자가 치유 시 역추적 용도
         public string? TargetDiskName { get; set; }
         
+        // 가공 중단 시 발생한 G-Code 라인 번호 (재시작 기능 지원용)
+        public int? LastErrorLine { get; set; }
+
         public bool IsValidated { get; set; }
         public bool IsArchived { get; set; }
         public bool IsDeleted { get; set; }

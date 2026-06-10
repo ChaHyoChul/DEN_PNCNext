@@ -114,5 +114,55 @@ namespace PncNext.API.Controllers
                 return StatusCode(500, "매핑 처리 중 서버 오류가 발생했습니다.");
             }
         }
+
+        /// <summary>
+        /// 가공 에러 상태인 파일을 초기화하여 재시작 가능(Ready) 상태로 복구합니다.
+        /// </summary>
+        /// <param name="id">NC 파일 ID</param>
+        [HttpPost("{id}/error-reset")]
+        public async Task<IActionResult> ErrorReset(int id)
+        {
+            try
+            {
+                var result = await _ncFileService.ResetErrorAsync(id);
+                if (!result) return NotFound("대상 NC 파일을 찾을 수 없습니다.");
+                
+                return Ok(new { message = "에러 상태가 해제되어 가공 준비 상태로 복구되었습니다." });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(ex.Message);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"에러 초기화 중 오류 발생 (FileId: {id})");
+                return StatusCode(500, "초기화 처리 중 서버 오류가 발생했습니다.");
+            }
+        }
+
+        /// <summary>
+        /// 파일을 처음부터 다시 가공할 수 있도록 Ready 상태로 완전히 초기화합니다.
+        /// </summary>
+        /// <param name="id">NC 파일 ID</param>
+        [HttpPost("{id}/reset")]
+        public async Task<IActionResult> Reset(int id)
+        {
+            try
+            {
+                var result = await _ncFileService.ResetToReadyAsync(id);
+                if (!result) return NotFound("대상 NC 파일을 찾을 수 없습니다.");
+                
+                return Ok(new { message = "파일이 가공 준비(Ready) 상태로 완전히 초기화되었습니다." });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(ex.Message);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"파일 초기화 중 오류 발생 (FileId: {id})");
+                return StatusCode(500, "초기화 처리 중 서버 오류가 발생했습니다.");
+            }
+        }
     }
 }

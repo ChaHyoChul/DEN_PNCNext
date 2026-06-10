@@ -23,6 +23,7 @@ builder.Services.AddSingleton<SharedMemoryService>();
 builder.Services.AddSingleton<ISignalRService, SignalRServiceStub>();
 builder.Services.AddScoped<IDiskManagementService, DiskManagementService>();
 builder.Services.AddScoped<INcFileService, NcFileService>();
+builder.Services.AddScoped<IJobManagementService, JobManagementService>();
 
 // 3. 동적 채널 및 컨트롤 서비스 팩토리 등록
 builder.Services.AddSingleton<IMotionControl>(sp =>

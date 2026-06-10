@@ -45,5 +45,21 @@ namespace PncNext.Domain.Interfaces
         /// NC 파일의 G-Code 무결성 검증 결과 상태를 업데이트합니다.
         /// </summary>
         Task UpdateValidationStatusAsync(int id, bool isValidated);
+
+        /// <summary>
+        /// 가공 에러 상태인 파일을 가공 준비(Ready) 상태로 복구합니다.
+        /// (중단점 정보인 LastErrorLine은 유지됩니다.)
+        /// </summary>
+        /// <param name="ncFileId">NC 파일 ID</param>
+        /// <returns>복구 성공 여부</returns>
+        Task<bool> ResetErrorAsync(int ncFileId);
+
+        /// <summary>
+        /// 파일을 처음부터 다시 가공할 수 있도록 Ready 상태로 완전히 초기화합니다.
+        /// (중단점 정보인 LastErrorLine이 삭제됩니다.)
+        /// </summary>
+        /// <param name="ncFileId">NC 파일 ID</param>
+        /// <returns>초기화 성공 여부</returns>
+        Task<bool> ResetToReadyAsync(int ncFileId);
     }
 }
