@@ -60,12 +60,13 @@ namespace PncNext.API.Controllers
         /// <summary>
         /// 디스크의 가공 영역 레이아웃을 업데이트합니다.
         /// </summary>
-        [HttpPut("{id}/layout")]
-        public async Task<IActionResult> UpdateLayout(int id, [FromBody] string newLayoutJson)
+        /// <param name="seq">디스크 대리키 (Seq)</param>
+        [HttpPut("{seq}/layout")]
+        public async Task<IActionResult> UpdateLayout(int seq, [FromBody] string newLayoutJson)
         {
             try
             {
-                await _diskService.UpdateUsedAreaAsync(id, newLayoutJson);
+                await _diskService.UpdateUsedAreaAsync(seq, newLayoutJson);
                 return NoContent();
             }
             catch (KeyNotFoundException ex)
@@ -77,10 +78,11 @@ namespace PncNext.API.Controllers
         /// <summary>
         /// 디스크 정보를 삭제합니다.
         /// </summary>
-        [HttpDelete("{id}")]
-        public async Task<IActionResult> Delete(int id)
+        /// <param name="seq">디스크 대리키 (Seq)</param>
+        [HttpDelete("{seq}")]
+        public async Task<IActionResult> Delete(int seq)
         {
-            await _diskService.DeleteDiskAsync(id);
+            await _diskService.DeleteDiskAsync(seq);
             return NoContent();
         }
     }

@@ -1,3 +1,5 @@
+using System.ComponentModel;
+
 namespace PncNext.Domain.Entities
 {
     public class DiskInventory
@@ -8,6 +10,8 @@ namespace PncNext.Domain.Entities
         public string MaterialType { get; set; } = string.Empty;
         public double Thickness { get; set; }
         public string UsedAreaLayout { get; set; } = "{}"; // JSON Format
+
+        [DefaultValue(false)]
         public bool IsDeleted { get; set; }
     }
 }

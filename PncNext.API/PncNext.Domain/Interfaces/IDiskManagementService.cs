@@ -32,6 +32,6 @@ namespace PncNext.Domain.Interfaces
         /// <summary>
         /// 디스크 정보를 삭제합니다.
         /// </summary>
-        Task DeleteDiskAsync(int id);
+        Task DeleteDiskAsync(int targetSeq);
     }
 }

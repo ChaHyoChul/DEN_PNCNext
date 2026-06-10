@@ -36,19 +36,40 @@ namespace PncNext.Infrastructure.Services
             // Swagger 등 외부 입력의 기본값 오류 보정
             disk.IsDeleted = false;
 
-            // 중복 DiskId 체크 (활성 디스크 내에서만)
-            var existing = await GetDiskByDiskIdAsync(disk.DiskId);
-            if (existing != null)
+            // 1. DiskId 자동 할당 (값이 0 이하로 입력된 경우)
+            if (disk.DiskId <= 0)
+            {
+                var maxActiveId = await _dbContext.DiskInventories
+                    .Where(d => !d.IsDeleted)
+                    .MaxAsync(d => (int?)d.DiskId) ?? 0;
+                
+                disk.DiskId = maxActiveId + 1;
+            }
+
+            // 2. 필수 입력 검증 (DiskName은 NC 파일명 매핑을 위해 반드시 필요)
+            if (string.IsNullOrWhiteSpace(disk.DiskName))
+            {
+                throw new ArgumentException("디스크 식별 이름(DiskName)은 필수 입력 사항입니다.");
+            }
+
+            // 3. 중복 DiskId 체크 (활성 디스크 내에서만)
+            var existingId = await GetDiskByDiskIdAsync(disk.DiskId);
+            if (existingId != null)
             {
                 throw new InvalidOperationException($"DiskId '{disk.DiskId}'는 이미 등록된 활성 자재입니다.");
+            }
+
+            // 4. 중복 DiskName 체크 (활성 디스크 내에서만)
+            var existingName = await _dbContext.DiskInventories
+                .AnyAsync(d => d.DiskName == disk.DiskName && !d.IsDeleted);
+            if (existingName)
+            {
+                throw new InvalidOperationException($"DiskName '{disk.DiskName}'은 이미 사용 중인 식별 이름입니다.");
             }
 
             using var transaction = await _dbContext.Database.BeginTransactionAsync();
             try
             {
-                // 포맷팅 적용
-                disk.DiskName = $"D{disk.DiskId:D4}";
-
                 _dbContext.DiskInventories.Add(disk);
                 await _dbContext.SaveChangesAsync(); // 새 Seq 발급
 
@@ -90,9 +111,10 @@ namespace PncNext.Infrastructure.Services
             var disk = await _dbContext.DiskInventories.FindAsync(targetSeq);
             if (disk == null) return;
 
-            // 1. 가드레일: 현재 해당 디스크로 가공 중인 파일이 있는지 검증
+            // 1. 가드레일: 현재 해당 디스크로 가공 중인 파일이 있는지 검증 (물리 연결 또는 비즈니스 키 일치)
             bool isCurrentlyMilling = await _dbContext.NcFileInventories
-                .AnyAsync(n => n.DiskSeq == targetSeq && n.Status == NcValidationStatus.Processing);
+                .AnyAsync(n => (n.DiskSeq == targetSeq || n.TargetDiskName == disk.DiskName) 
+                                && n.Status == NcValidationStatus.Processing);
 
             if (isCurrentlyMilling)
             {
@@ -103,8 +125,10 @@ namespace PncNext.Infrastructure.Services
             try
             {
                 // 2. 가공 대기(Ready) 상태인 파일들은 외래키를 해제하고 InvalidDiskId로 격리
+                // (DiskSeq가 연결된 경우뿐만 아니라, 아직 연결 안 되었으나 이름이 같은 경우도 일괄 격리)
                 var readyFiles = await _dbContext.NcFileInventories
-                    .Where(n => n.DiskSeq == targetSeq && n.Status == NcValidationStatus.Ready)
+                    .Where(n => (n.DiskSeq == targetSeq || n.TargetDiskName == disk.DiskName) 
+                                && n.Status == NcValidationStatus.Ready)
                     .ToListAsync();
 
                 foreach (var file in readyFiles)

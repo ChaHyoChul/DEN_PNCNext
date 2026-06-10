@@ -132,15 +132,22 @@ namespace PncNext.API.Services
                     // 신규 파일 엔티티 생성을 위한 분석
                     var newStatus = NcValidationStatus.Ready;
                     string? targetDiskId = null;
+                    int? matchedDiskSeq = null;
 
                     // 1. 파일명에서 DiskID 추출 (D0000- 패턴)
                     var match = DiskIdRegex.Match(fileName);
                     if (match.Success)
                     {
                         targetDiskId = match.Groups[1].Value.ToUpper();
-                        // 2. DB에서 실제 디스크 존재 여부 확인
-                        var diskExists = await dbContext.DiskInventories.AnyAsync(d => d.DiskName == targetDiskId);
-                        if (!diskExists)
+                        // 2. DB에서 실제 디스크 존재 여부 확인 및 Seq 추출
+                        var existingDisk = await dbContext.DiskInventories
+                            .FirstOrDefaultAsync(d => d.DiskName == targetDiskId && !d.IsDeleted);
+
+                        if (existingDisk != null)
+                        {
+                            matchedDiskSeq = existingDisk.Seq;
+                        }
+                        else
                         {
                             newStatus = NcValidationStatus.InvalidDiskId;
                             _logger.LogWarning($"[분석] 파일명에 디스크 ID({targetDiskId})가 있으나 DB에 등록되지 않았습니다: {fileName}");
@@ -159,6 +166,7 @@ namespace PncNext.API.Services
                         FilePath = filePath,
                         Status = newStatus,
                         TargetDiskName = targetDiskId,
+                        DiskSeq = matchedDiskSeq, // 찾은 대리키 연결 (없으면 null)
                         IsValidated = false,
                         IsArchived = false,
                         IsDeleted = false
