@@ -82,6 +82,18 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
+// CORS 정책 추가: Vite 개발 서버(기본 5173 포트) 및 다른 로컬 요청 허용
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowTestingApp", policy =>
+    {
+        policy.WithOrigins("http://localhost:5173") // Vite 기본 주소
+              .AllowAnyMethod()
+              .AllowAnyHeader()
+              .AllowCredentials(); // SignalR 필수 설정
+    });
+});
+
 var app = builder.Build();
 
 if (app.Environment.IsDevelopment())
@@ -91,6 +103,10 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+
+// CORS 적용 (MapControllers 이전에 위치해야 함)
+app.UseCors("AllowTestingApp");
+
 app.UseAuthorization();
 app.MapControllers();
 app.Run();
